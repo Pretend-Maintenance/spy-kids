@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPERATIVE COMMAND — SPY ACADEMY</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --green: #00ff41;
+    --dim-green: #00b32c;
+    --dark-green: #003d0f;
+    --black: #020c02;
+    --red: #ff003c;
+    --amber: #ffb300;
+    --panel: rgba(0,255,65,0.05);
+    --border: rgba(0,255,65,0.25);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Share Tech Mono', monospace;
+    background: var(--black);
+    color: var(--green);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* CRT scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  /* ─── PAGES ─── */
+  .page { display: none; min-height: 100vh; padding: 20px; flex-direction: column; align-items: center; }
+  .page.active { display: flex; }
+
+  /* ─── HEADER ─── */
+  .hdr {
+    text-align: center;
+    margin-bottom: 30px;
+    width: 100%;
+  }
+  .hdr-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.2rem, 4vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 20px var(--green), 0 0 40px var(--dim-green);
+    animation: flicker 8s infinite;
+  }
+  .hdr-sub {
+    font-size: 0.7rem;
+    color: var(--dim-green);
+    letter-spacing: 0.3em;
+    margin-top: 4px;
+  }
+  .hdr-line {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    margin-top: 12px;
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  @keyframes flicker {
+    0%,95%,100% { opacity: 1; }
+    96% { opacity: 0.8; }
+    97% { opacity: 1; }
+    98% { opacity: 0.6; }
+    99% { opacity: 1; }
+  }
+
+  /* ─── PANEL ─── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 20px; right: 20px; height: 1px;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+  }
+  .panel-label {
+    position: absolute;
+    top: -10px; left: 16px;
+    font-size: 0.65rem;
+    background: var(--black);
+    padding: 0 8px;
+    letter-spacing: 0.2em;
+    color: var(--dim-green);
+  }
+
+  /* ─── CAMERA / SCANNER ─── */
+  #scanner-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 1/1;
+    border: 1px solid var(--border);
+    background: #000;
+    overflow: hidden;
+  }
+  #cam-video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #cam-canvas { display: none; }
+
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .scan-corner {
+    position: absolute;
+    width: 30px; height: 30px;
+    border-color: var(--green);
+    border-style: solid;
+    box-shadow: 0 0 10px var(--green);
+  }
+  .scan-corner.tl { top: 10px; left: 10px; border-width: 3px 0 0 3px; }
+  .scan-corner.tr { top: 10px; right: 10px; border-width: 3px 3px 0 0; }
+  .scan-corner.bl { bottom: 10px; left: 10px; border-width: 0 0 3px 3px; }
+  .scan-corner.br { bottom: 10px; right: 10px; border-width: 0 3px 3px 0; }
+
+  .scan-line {
+    position: absolute;
+    left: 5%; right: 5%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    box-shadow: 0 0 8px var(--green);
+    animation: scanline 2.5s ease-in-out infinite;
+    top: 10px;
+  }
+  @keyframes scanline {
+    0% { top: 10px; opacity: 1; }
+    100% { top: calc(100% - 12px); opacity: 0.3; }
+  }
+
+  .scan-status {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.7);
+    padding: 8px;
+    text-align: center;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--dim-green);
+  }
+
+  /* ─── OPERATIVE BADGE ─── */
+  .operative-badge {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    width: 100%;
+    max-width: 480px;
+    margin-top: 16px;
+  }
+  .badge-icon {
+    font-size: 2.5rem;
+    filter: drop-shadow(0 0 8px var(--green));
+  }
+  .badge-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .badge-status { font-size: 0.65rem; color: var(--dim-green); margin-top: 2px; }
+
+  /* ─── MISSION PROGRESS ─── */
+  .missions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+    max-width: 480px;
+    margin-top: 12px;
+  }
+  .mission-chip {
+    border: 1px solid var(--border);
+    padding: 10px 6px;
+    text-align: center;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--dim-green);
+    background: var(--panel);
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .mission-chip.done {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0,255,65,0.1);
+    box-shadow: 0 0 8px rgba(0,255,65,0.3);
+  }
+  .mission-chip.done::after {
+    content: '✓';
+    position: absolute;
+    top: 2px; right: 4px;
+    font-size: 0.6rem;
+    color: var(--green);
+  }
+  .mission-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ─── BTN ─── */
+  .btn {
+    font-family: 'Share Tech Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 10px 24px;
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn:hover {
+    background: rgba(0,255,65,0.15);
+    box-shadow: 0 0 12px rgba(0,255,65,0.4);
+  }
+  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: rgba(255,0,60,0.15); box-shadow: 0 0 12px rgba(255,0,60,0.4); }
+  .btn-amber { border-color: var(--amber); color: var(--amber); }
+  .btn-amber:hover { background: rgba(255,179,0,0.15); }
+  .btn-sm { padding: 6px 14px; font-size: 0.7rem; }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+
+  /* ─── VIDEO MODAL ─── */
+  #video-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 1000;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #video-modal.active { display: flex; }
+
+  .modal-header {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.3em;
+    color: var(--green);
+    margin-bottom: 12px;
+    text-align: center;
+    text-shadow: 0 0 10px var(--green);
+  }
+  .modal-mission {
+    font-size: 1.2rem;
+    font-weight: 900;
+    margin-bottom: 20px;
+  }
+
+  #mission-video {
+    width: 100%;
+    max-width: 700px;
+    border: 1px solid var(--green);
+    box-shadow: 0 0 30px rgba(0,255,65,0.3);
+    background: #000;
+  }
+
+  .modal-close-hint {
+    margin-top: 16px;
+    font-size: 0.65rem;
+    color: var(--dim-green);
+    letter-spacing: 0.2em;
+    animation: blink 1.5s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ─── TOAST ─── */
+  #toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--dark-green);
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 12px 24px;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    z-index: 2000;
+    transition: transform 0.3s ease;
+    text-align: center;
+    white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.error { border-color: var(--red); color: var(--red); background: #1a0007; }
+  #toast.warn { border-color: var(--amber); color: var(--amber); background: #1a1000; }
+
+  /* ─── ADMIN ─── */
+  .admin-section { margin-bottom: 24px; }
+  .admin-section h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--dim-green);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+
+  .kid-list { display: flex; flex-direction: column; gap: 8px; }
+  .kid-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .kid-name-display {
+    flex: 1;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+  }
+
+  .field-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  input[type=text], input[type=password], select {
+    font-family: 'Share Tech Mono', monospace;
+    background: rgba(0,255,65,0.05);
+    border: 1px solid var(--border);
+    color: var(--green);
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    outline: none;
+    width: 100%;
+  }
+  input[type=text]:focus, input[type=password]:focus, select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+  input::placeholder { color: var(--dark-green); }
+
+  label { font-size: 0.7rem; color: var(--dim-green); letter-spacing: 0.15em; display: block; margin-bottom: 4px; }
+
+  /* ─── QR DISPLAY ─── */
+  #qr-output-area {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    margin-top: 16px;
+  }
+  #qr-output-area.active { display: flex; }
+  #qr-canvas-display {
+    border: 4px solid var(--black);
+    box-shadow: 0 0 0 1px var(--green), 0 0 20px rgba(0,255,65,0.3);
+    image-rendering: pixelated;
+  }
+  .qr-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    text-align: center;
+  }
+  .qr-url-display {
+    font-size: 0.6rem;
+    color: var(--dim-green);
+    word-break: break-all;
+    text-align: center;
+    max-width: 280px;
+  }
+
+  /* ─── NAV DOTS ─── */
+  .nav-strip {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 500;
+  }
+  .nav-dot {
+    width: 8px; height: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+  }
+  .nav-dot:hover, .nav-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ─── COMPLETE BANNER ─── */
+  .complete-banner {
+    display: none;
+    background: rgba(0,255,65,0.1);
+    border: 1px solid var(--green);
+    padding: 12px 20px;
+    text-align: center;
+    margin-top: 12px;
+    width: 100%;
+    max-width: 480px;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+  .complete-banner.active { display: block; }
+  @keyframes pulse-border {
+    0%,100% { box-shadow: 0 0 8px rgba(0,255,65,0.3); }
+    50% { box-shadow: 0 0 20px rgba(0,255,65,0.7); }
+  }
+  .complete-banner .cb-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+  }
+  .complete-banner .cb-sub { font-size: 0.7rem; color: var(--dim-green); margin-top: 4px; }
+
+  /* ─── ACTIVITY QR PREVIEW ─── */
+  .activity-qr-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .activity-qr-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .activity-qr-item:hover { border-color: var(--green); background: rgba(0,255,65,0.08); }
+  .activity-qr-item canvas { image-rendering: pixelated; }
+  .activity-qr-label { font-size: 0.65rem; color: var(--dim-green); letter-spacing: 0.1em; }
+
+  /* ─── MISSION CONFIG ─── */
+  .mission-config-list { display: flex; flex-direction: column; gap: 8px; }
+  .mission-config-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .mcr-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    color: var(--dim-green);
+    width: 70px;
+    flex-shrink: 0;
+  }
+  .mcr-name { flex: 1; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 480px) {
+    .activity-qr-grid { grid-template-columns: repeat(2, 1fr); }
+    .missions-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* ─── LOGIN ─── */
+  #login-page { justify-content: center; }
+  .login-box {
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+  .login-box .hdr-title { font-size: 1rem; }
+  .lock-icon { font-size: 3rem; margin-bottom: 16px; filter: drop-shadow(0 0 10px var(--green)); }
+  .login-err { color: var(--red); font-size: 0.7rem; margin-top: 8px; min-height: 20px; }
+</style>
+</head>
+<body>
+
+<!-- Nav dots -->
+<div class="nav-strip" id="nav-strip"></div>
+
+<!-- ════════════════════════════════════════
+     PAGE: SCANNER
+═════════════════════════════════════════ -->
+<div class="page active" id="page-scanner">
+  <div class="hdr">
+    <div class="hdr-title">◈ SPY ACADEMY ◈</div>
+    <div class="hdr-sub">OPERATIVE COMMAND CENTRE</div>
+    <div class="hdr-line"></div>
+  </div>
+
+  <!-- Camera -->
+  <div id="scanner-wrap">
+    <video id="cam-video" autoplay playsinline muted></video>
+    <canvas id="cam-canvas"></canvas>
+    <div class="scan-overlay">
+      <div class="scan-corner tl"></div>
+      <div class="scan-corner tr"></div>
+      <div class="scan-corner bl"></div>
+      <div class="scan-corner br"></div>
+      <div class="scan-line"></div>
+    </div>
+    <div class="scan-status" id="scan-status">INITIALISING SCANNER...</div>
+  </div>
+
+  <!-- Operative badge (shown after kid scan) -->
+  <div class="operative-badge" id="operative-badge" style="display:none">
+    <div class="badge-icon">🕵️</div>
+    <div>
+      <div class="badge-name" id="badge-name">—</div>
+      <div class="badge-status" id="badge-status">OPERATIVE IDENTIFIED</div>
+    </div>
+  </div>
+
+  <!-- Mission progress -->
+  <div class="missions-grid" id="missions-grid" style="display:none">
+    <!-- filled by JS -->
+  </div>
+
+  <!-- Complete banner -->
+  <div class="complete-banner" id="complete-banner">
+    <div class="cb-title">🏆 ALL MISSIONS COMPLETE 🏆</div>
+    <div class="cb-sub">OUTSTANDING OPERATIVE — REPORT TO HANDLER</div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-sm" onclick="showPage('page-scanner'); resetScanner()">↺ RESCAN</button>
+    <button class="btn btn-sm btn-amber" onclick="clearCurrentKid()">⊘ CLEAR OPERATIVE</button>
+    <button class="btn btn-sm" onclick="showPage('page-admin-login')">⚙ ADMIN</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     PAGE: ADMIN LOGIN
+═════════════════════════════════════════ -->
+<div class="page" id="page-admin-login">
+  <div class="login-box">
+    <div class="hdr-title">⚙ ADMIN ACCESS</div>
+    <div class="hdr-sub" style="margin-bottom:30px">CLEARANCE REQUIRED</div>
+    <div class="lock-icon">🔒</div>
+    <div>
+      <label>ENTER ACCESS CODE</label>
+      <input type="password" id="admin-pw-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkAdminPw()">
+      <div class="login-err" id="login-err"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="checkAdminPw()">AUTHENTICATE</button>
+      <button class="btn btn-danger" onclick="showPage('page-scanner')">ABORT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     PAGE: ADMIN PANEL
+═════════════════════════════════════════ -->
+<div class="page" id="page-admin">
+  <div class="hdr">
+    <div class="hdr-title">⚙ ADMIN PANEL</div>
+    <div class="hdr-sub">HANDLER CONTROLS — CLASSIFIED</div>
+    <div class="hdr-line"></div>
+  </div>
+
+  <div style="width:100%;max-width:640px">
+
+    <!-- ── Operatives ── -->
+    <div class="admin-section panel" style="margin-bottom:20px">
+      <div class="panel-label">OPERATIVES</div>
+      <br>
+      <div class="kid-list" id="kid-list"></div>
+      <div class="field-row" style="margin-top:14px">
+        <input type="text" id="new-kid-name" placeholder="SPY CODE NAME" maxlength="30">
+        <button class="btn btn-sm" onclick="addKid()" style="white-space:nowrap">+ ADD</button>
+      </div>
+    </div>
+
+    <!-- ── Mission Names ── -->
+    <div class="admin-section panel" style="margin-bottom:20px">
+      <div class="panel-label">MISSION NAMES</div>
+      <br>
+      <div class="mission-config-list" id="mission-config-list"></div>
+    </div>
+
+    <!-- ── Generate Kid QR ── -->
+    <div class="admin-section panel" style="margin-bottom:20px">
+      <div class="panel-label">GENERATE OPERATIVE QR</div>
+      <br>
+      <div class="field-row">
+        <select id="qr-kid-select">
+          <option value="">— SELECT OPERATIVE —</option>
+        </select>
+        <button class="btn btn-sm" onclick="generateKidQR()" style="white-space:nowrap">GENERATE</button>
+      </div>
+      <div id="qr-output-area">
+        <div class="qr-label" id="qr-output-label"></div>
+        <canvas id="qr-canvas-display"></canvas>
+        <div class="qr-url-display" id="qr-url-display"></div>
+        <button class="btn btn-sm" onclick="downloadKidQR()">⬇ DOWNLOAD QR</button>
+      </div>
+    </div>
+
+    <!-- ── Activity QR Codes ── -->
+    <div class="admin-section panel" style="margin-bottom:20px">
+      <div class="panel-label">MISSION ACTIVITY QR CODES</div>
+      <br>
+      <p style="font-size:0.7rem;color:var(--dim-green);margin-bottom:10px">Click any code to download. Print and place at activity stations.</p>
+      <div class="activity-qr-grid" id="activity-qr-grid"></div>
+    </div>
+
+    <!-- ── Reset Progress ── -->
+    <div class="admin-section panel" style="margin-bottom:20px">
+      <div class="panel-label">PROGRESS CONTROL</div>
+      <br>
+      <div class="field-row">
+        <select id="reset-kid-select">
+          <option value="">— SELECT OPERATIVE —</option>
+          <option value="__all__">ALL OPERATIVES</option>
+        </select>
+        <button class="btn btn-sm btn-danger" onclick="resetProgress()" style="white-space:nowrap">RESET</button>
+      </div>
+    </div>
+
+    <!-- ── Password ── -->
+    <div class="admin-section panel" style="margin-bottom:20px">
+      <div class="panel-label">CHANGE ACCESS CODE</div>
+      <br>
+      <div class="field-row">
+        <input type="password" id="new-pw" placeholder="NEW CODE">
+        <input type="password" id="new-pw2" placeholder="CONFIRM">
+        <button class="btn btn-sm btn-amber" onclick="changePw()" style="white-space:nowrap">SAVE</button>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-bottom:30px">
+      <button class="btn btn-danger" onclick="showPage('page-scanner')">◀ EXIT ADMIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     VIDEO MODAL
+═════════════════════════════════════════ -->
+<div id="video-modal">
+  <div class="modal-header">
+    ◈ INCOMING MISSION BRIEFING ◈
+    <div class="modal-mission" id="modal-mission-name">MISSION 1</div>
+  </div>
+  <video id="mission-video" controls></video>
+  <div class="modal-close-hint">[ PRESS CLOSE WHEN BRIEFING COMPLETE ]</div>
+  <div class="btn-row" style="margin-top:16px">
+    <button class="btn" onclick="closeVideo()">◼ CLOSE BRIEFING</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- jsQR -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<!-- QRCode.js for generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+// ══════════════════════════════════════════
+//  DATA LAYER
+// ══════════════════════════════════════════
+
+const STORAGE_KEY   = 'spyAcademy';
+const DEFAULT_MISSIONS = [
+  { id: 1, name: 'INFILTRATION'  },
+  { id: 2, name: 'DECRYPTION'    },
+  { id: 3, name: 'EXTRACTION'    },
+  { id: 4, name: 'SURVEILLANCE'  },
+  { id: 5, name: 'SABOTAGE'      },
+  { id: 6, name: 'EXFILTRATION'  },
+];
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : freshState();
+  } catch { return freshState(); }
+}
+
+function freshState() {
+  return {
+    password : 'spy123',
+    kids     : [],          // [{id, name}]
+    progress : {},          // {kidId: [1,2,3,...]}
+    missions : DEFAULT_MISSIONS.map(m => ({...m})),
+  };
+}
+
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+let state = loadState();
+
+// ── Helpers ──
+function getKidById(id) { return state.kids.find(k => k.id === id); }
+function genId() { return 'k_' + Math.random().toString(36).slice(2, 8); }
+function getProgress(kidId) { return state.progress[kidId] || []; }
+function markDone(kidId, missionId) {
+  if (!state.progress[kidId]) state.progress[kidId] = [];
+  if (!state.progress[kidId].includes(missionId)) state.progress[kidId].push(missionId);
+  saveState();
+}
+
+// ══════════════════════════════════════════
+//  PAGE ROUTING
+// ══════════════════════════════════════════
+
+const PAGES = ['page-scanner', 'page-admin-login', 'page-admin'];
+
+function showPage(id) {
+  PAGES.forEach(p => document.getElementById(p).classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'page-admin') { renderAdmin(); }
+  if (id === 'page-scanner') { resetScanner(); renderScannerBadge(); }
+}
+
+// ══════════════════════════════════════════
+//  SCANNER
+// ══════════════════════════════════════════
+
+let currentKidId  = null;
+let scanning      = false;
+let stream        = null;
+let scanInterval  = null;
+let lastScanned   = null;
+let lastScannedTs = 0;
+
+const video  = document.getElementById('cam-video');
+const canvas = document.getElementById('cam-canvas');
+const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+
+function getBaseUrl() {
+  return window.location.origin + window.location.pathname.replace(/\/$/, '');
+}
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    await video.play();
+    scanning = true;
+    document.getElementById('scan-status').textContent = 'SCANNER ACTIVE — PRESENT QR CODE';
+    scanInterval = setInterval(tick, 200);
+  } catch (e) {
+    document.getElementById('scan-status').textContent = 'CAMERA ACCESS DENIED — CHECK PERMISSIONS';
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  clearInterval(scanInterval);
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+
+function resetScanner() {
+  stopCamera();
+  lastScanned = null;
+  lastScannedTs = 0;
+  startCamera();
+}
+
+function tick() {
+  if (!scanning || video.readyState < 2) return;
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+  const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+  if (!code) return;
+
+  const now = Date.now();
+  if (code.data === lastScanned && now - lastScannedTs < 3000) return;
+  lastScanned   = code.data;
+  lastScannedTs = now;
+
+  handleQR(code.data);
+}
+
+function handleQR(data) {
+  // Expected formats:
+  //   <baseurl>?kid=<id>
+  //   <baseurl>?activity=<num>
+  let url;
+  try { url = new URL(data); } catch { toast('UNRECOGNISED QR CODE', 'error'); return; }
+
+  const kidId     = url.searchParams.get('kid');
+  const activityN = url.searchParams.get('activity');
+
+  if (kidId) {
+    const kid = getKidById(kidId);
+    if (!kid) { toast('OPERATIVE NOT FOUND — RECONFIGURE', 'error'); return; }
+    currentKidId = kidId;
+    renderScannerBadge();
+    toast('OPERATIVE IDENTIFIED: ' + kid.name);
+    document.getElementById('scan-status').textContent = 'OPERATIVE LOCKED — SCAN ACTIVITY STATION';
+    return;
+  }
+
+  if (activityN) {
+    const n = parseInt(activityN);
+    if (n < 1 || n > state.missions.length) { toast('UNKNOWN ACTIVITY', 'error'); return; }
+    if (!currentKidId) { toast('SCAN YOUR OPERATIVE CARD FIRST', 'warn'); return; }
+    const done = getProgress(currentKidId);
+    if (done.includes(n)) { toast('MISSION ' + n + ' ALREADY COMPLETE', 'warn'); return; }
+    markDone(currentKidId, n);
+    renderScannerBadge();
+    openVideo(n);
+    return;
+  }
+
+  toast('UNRECOGNISED QR CODE', 'error');
+}
+
+function renderScannerBadge() {
+  const badge    = document.getElementById('operative-badge');
+  const grid     = document.getElementById('missions-grid');
+  const banner   = document.getElementById('complete-banner');
+
+  if (!currentKidId) {
+    badge.style.display  = 'none';
+    grid.style.display   = 'none';
+    banner.classList.remove('active');
+    document.getElementById('scan-status').textContent = 'SCANNER ACTIVE — PRESENT OPERATIVE CARD';
+    return;
+  }
+
+  const kid  = getKidById(currentKidId);
+  if (!kid) { clearCurrentKid(); return; }
+
+  badge.style.display  = 'flex';
+  grid.style.display   = 'grid';
+  document.getElementById('badge-name').textContent = kid.name;
+
+  const done  = getProgress(currentKidId);
+  const total = state.missions.length;
+
+  document.getElementById('badge-status').textContent =
+    `MISSIONS COMPLETE: ${done.length} / ${total}`;
+
+  // Mission chips
+  grid.innerHTML = state.missions.map(m => `
+    <div class="mission-chip ${done.includes(m.id) ? 'done' : ''}">
+      <span class="mission-num">${m.id}</span>
+      <span>${m.name}</span>
+    </div>
+  `).join('');
+
+  // Complete banner
+  if (done.length === total) {
+    banner.classList.add('active');
+    document.getElementById('scan-status').textContent = 'ALL MISSIONS COMPLETE — OUTSTANDING OPERATIVE';
+  } else {
+    banner.classList.remove('active');
+    document.getElementById('scan-status').textContent = 'OPERATIVE LOCKED — SCAN ACTIVITY STATION';
+  }
+}
+
+function clearCurrentKid() {
+  currentKidId = null;
+  renderScannerBadge();
+  toast('OPERATIVE CLEARED');
+}
+
+// ══════════════════════════════════════════
+//  VIDEO MODAL
+// ══════════════════════════════════════════
+
+function openVideo(missionNum) {
+  const modal   = document.getElementById('video-modal');
+  const vidEl   = document.getElementById('mission-video');
+  const mName   = document.getElementById('modal-mission-name');
+  const mission = state.missions.find(m => m.id === missionNum);
+
+  mName.textContent  = `MISSION ${missionNum}: ${mission ? mission.name : ''}`;
+  vidEl.src          = `videos/activity${missionNum}.mp4`;
+  vidEl.currentTime  = 0;
+  modal.classList.add('active');
+
+  vidEl.play().catch(() => {});
+
+  // Auto-close when video ends
+  vidEl.onended = () => closeVideo();
+}
+
+function closeVideo() {
+  const modal  = document.getElementById('video-modal');
+  const vidEl  = document.getElementById('mission-video');
+  vidEl.pause();
+  vidEl.src    = '';
+  modal.classList.remove('active');
+  renderScannerBadge();
+}
+
+// ══════════════════════════════════════════
+//  ADMIN
+// ══════════════════════════════════════════
+
+function checkAdminPw() {
+  const val = document.getElementById('admin-pw-input').value;
+  if (val === state.password) {
+    document.getElementById('admin-pw-input').value = '';
+    document.getElementById('login-err').textContent = '';
+    showPage('page-admin');
+  } else {
+    document.getElementById('login-err').textContent = '⚠ INVALID ACCESS CODE';
+  }
+}
+
+function renderAdmin() {
+  renderKidList();
+  renderMissionConfig();
+  renderKidSelects();
+  renderActivityQRs();
+}
+
+function renderKidList() {
+  const list = document.getElementById('kid-list');
+  if (state.kids.length === 0) {
+    list.innerHTML = '<div style="font-size:0.7rem;color:var(--dim-green);padding:8px">NO OPERATIVES REGISTERED</div>';
+    return;
+  }
+  list.innerHTML = state.kids.map(k => `
+    <div class="kid-row">
+      <div class="kid-name-display">${k.name}</div>
+      <button class="btn btn-sm" onclick="editKidName('${k.id}')">✎ RENAME</button>
+      <button class="btn btn-sm btn-danger" onclick="removeKid('${k.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function renderMissionConfig() {
+  const list = document.getElementById('mission-config-list');
+  list.innerHTML = state.missions.map(m => `
+    <div class="mission-config-row">
+      <div class="mcr-num">MISSION ${m.id}</div>
+      <div class="mcr-name">
+        <input type="text" value="${escHtml(m.name)}" maxlength="20"
+          oninput="updateMissionName(${m.id}, this.value)" placeholder="MISSION NAME">
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateMissionName(id, val) {
+  const m = state.missions.find(m => m.id === id);
+  if (m) { m.name = val.toUpperCase(); saveState(); }
+}
+
+function renderKidSelects() {
+  const opts = state.kids.map(k => `<option value="${k.id}">${k.name}</option>`).join('');
+  document.getElementById('qr-kid-select').innerHTML   = '<option value="">— SELECT OPERATIVE —</option>' + opts;
+  document.getElementById('reset-kid-select').innerHTML = '<option value="">— SELECT OPERATIVE —</option><option value="__all__">ALL OPERATIVES</option>' + opts;
+}
+
+function addKid() {
+  const input = document.getElementById('new-kid-name');
+  const name  = input.value.trim().toUpperCase();
+  if (!name) { toast('ENTER A NAME', 'warn'); return; }
+  if (state.kids.find(k => k.name === name)) { toast('OPERATIVE ALREADY EXISTS', 'warn'); return; }
+  state.kids.push({ id: genId(), name });
+  saveState();
+  input.value = '';
+  renderAdmin();
+  toast('OPERATIVE ADDED: ' + name);
+}
+
+function removeKid(id) {
+  if (!confirm('REMOVE THIS OPERATIVE AND ALL THEIR PROGRESS?')) return;
+  state.kids     = state.kids.filter(k => k.id !== id);
+  delete state.progress[id];
+  saveState();
+  renderAdmin();
+  if (currentKidId === id) clearCurrentKid();
+  toast('OPERATIVE REMOVED');
+}
+
+function editKidName(id) {
+  const kid  = getKidById(id);
+  const name = prompt('NEW OPERATIVE NAME:', kid.name);
+  if (!name || !name.trim()) return;
+  kid.name = name.trim().toUpperCase();
+  saveState();
+  renderAdmin();
+  toast('OPERATIVE RENAMED');
+}
+
+function resetProgress() {
+  const sel = document.getElementById('reset-kid-select').value;
+  if (!sel) { toast('SELECT AN OPERATIVE', 'warn'); return; }
+  if (!confirm('RESET PROGRESS?')) return;
+  if (sel === '__all__') {
+    state.progress = {};
+    toast('ALL PROGRESS RESET');
+  } else {
+    state.progress[sel] = [];
+    const kid = getKidById(sel);
+    toast('PROGRESS RESET: ' + (kid ? kid.name : sel));
+  }
+  saveState();
+  renderScannerBadge();
+}
+
+function changePw() {
+  const a = document.getElementById('new-pw').value;
+  const b = document.getElementById('new-pw2').value;
+  if (!a) { toast('ENTER NEW CODE', 'warn'); return; }
+  if (a !== b) { toast('CODES DO NOT MATCH', 'error'); return; }
+  state.password = a;
+  saveState();
+  document.getElementById('new-pw').value  = '';
+  document.getElementById('new-pw2').value = '';
+  toast('ACCESS CODE UPDATED');
+}
+
+// ══════════════════════════════════════════
+//  QR GENERATION
+// ══════════════════════════════════════════
+
+function makeQRUrl(params) {
+  const base = getBaseUrl();
+  return base + '?' + new URLSearchParams(params).toString();
+}
+
+// We use a canvas-based QR generator since qrcodejs renders to div/img.
+// We'll use a minimal QR encoder via a hidden div and then copy to canvas.
+
+let hiddenQRDiv = null;
+
+function generateQRToCanvas(text, canvas, size) {
+  // Clear previous
+  if (hiddenQRDiv) { hiddenQRDiv.remove(); }
+  hiddenQRDiv = document.createElement('div');
+  hiddenQRDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
+  document.body.appendChild(hiddenQRDiv);
+
+  return new Promise(resolve => {
+    const qr = new QRCode(hiddenQRDiv, {
+      text,
+      width  : size,
+      height : size,
+      colorDark  : '#000000',
+      colorLight : '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+
+    setTimeout(() => {
+      const img = hiddenQRDiv.querySelector('img') || hiddenQRDiv.querySelector('canvas');
+      if (!img) { resolve(false); return; }
+
+      const src = img.tagName === 'CANVAS' ? img.toDataURL() : img.src;
+      const i   = new Image();
+      i.onload  = () => {
+        canvas.width = canvas.height = size;
+        const c = canvas.getContext('2d');
+        c.drawImage(i, 0, 0, size, size);
+        resolve(true);
+      };
+      i.src = src;
+    }, 100);
+  });
+}
+
+async function generateKidQR() {
+  const sel = document.getElementById('qr-kid-select').value;
+  if (!sel) { toast('SELECT AN OPERATIVE', 'warn'); return; }
+  const kid = getKidById(sel);
+  if (!kid) { toast('OPERATIVE NOT FOUND', 'error'); return; }
+
+  const url    = makeQRUrl({ kid: kid.id });
+  const area   = document.getElementById('qr-output-area');
+  const label  = document.getElementById('qr-output-label');
+  const urlEl  = document.getElementById('qr-url-display');
+  const canvas = document.getElementById('qr-canvas-display');
+
+  label.textContent = kid.name;
+  urlEl.textContent = url;
+  area.classList.add('active');
+
+  await generateQRToCanvas(url, canvas, 280);
+}
+
+function downloadKidQR() {
+  const canvas = document.getElementById('qr-canvas-display');
+  const label  = document.getElementById('qr-output-label').textContent || 'operative';
+  const link   = document.createElement('a');
+  link.download = `spy_qr_${label.replace(/\s+/g, '_')}.png`;
+  link.href     = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function renderActivityQRs() {
+  const grid = document.getElementById('activity-qr-grid');
+  grid.innerHTML = '';
+
+  for (const m of state.missions) {
+    const url    = makeQRUrl({ activity: m.id });
+    const item   = document.createElement('div');
+    item.className = 'activity-qr-item';
+
+    const lbl    = document.createElement('div');
+    lbl.className = 'activity-qr-label';
+    lbl.textContent = `MISSION ${m.id}: ${m.name}`;
+
+    const cvs    = document.createElement('canvas');
+    item.appendChild(cvs);
+    item.appendChild(lbl);
+    grid.appendChild(item);
+
+    await generateQRToCanvas(url, cvs, 120);
+
+    // Click to download
+    item.onclick = () => {
+      const link   = document.createElement('a');
+      link.download = `mission_${m.id}_${m.name.replace(/\s+/g,'_')}.png`;
+      link.href     = cvs.toDataURL('image/png');
+      link.click();
+    };
+  }
+}
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+
+let toastTimer;
+function toast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent  = msg;
+  t.className    = 'show' + (type === 'error' ? ' error' : type === 'warn' ? ' warn' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Handle URL params on load (when a kid scans their own QR from camera)
+function checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const kid    = params.get('kid');
+  const act    = params.get('activity');
+
+  if (kid) {
+    const k = getKidById(kid);
+    if (k) { currentKidId = kid; }
+  }
+  if (act && currentKidId) {
+    setTimeout(() => openVideo(parseInt(act)), 500);
+  }
+
+  // Clean URL without reloading
+  if (kid || act) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+
+checkUrlParams();
+startCamera();
+renderScannerBadge();
+</script>
+</body>
+</html>
