@@ -687,19 +687,35 @@ function resetScanner() { stopCamera(); lastScan = null; lastScanTs = 0; startCa
 
 function tick() {
   if (!scanning || vid.readyState < 2) return;
-  cvs.width = vid.videoWidth; cvs.height = vid.videoHeight;
-  cctx.drawImage(vid, 0, 0);
+  // Scan at 2x native resolution for better QR detection
+  const scale = 2;
+  cvs.width = vid.videoWidth * scale; cvs.height = vid.videoHeight * scale;
+  cctx.drawImage(vid, 0, 0, cvs.width, cvs.height);
   const img = cctx.getImageData(0, 0, cvs.width, cvs.height);
+  // Normalise green channel dominance from camera tint
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    d[i] = d[i+1] = d[i+2] = gray;
+  }
+  cctx.putImageData(img, 0, 0);
   const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
   if (!code) return;
   const now = Date.now();
-  if (code.data === lastScan && now - lastScanTs < 3000) return;
+  if (code.data === lastScan && now - lastScanTs < 1500) return;
   lastScan = code.data; lastScanTs = now;
   handleQR(code.data);
 }
 
 function handleQR(data) {
-  let url; try { url = new URL(data); } catch { toast('UNRECOGNISED QR', 'error'); return; }
+  // Show what we're reading for debug
+  document.getElementById('scan-status-bar').textContent = 'READ: ' + data.slice(0,60);
+  let url;
+  try { url = new URL(data); }
+  catch {
+    // Try treating as just params e.g. "?kid=k_abc123"
+    try { url = new URL('https://x.com/' + data); } catch { toast('UNRECOGNISED QR', 'error'); return; }
+  }
   const kidId = url.searchParams.get('kid');
   const actN  = url.searchParams.get('activity');
   if (kidId) {
