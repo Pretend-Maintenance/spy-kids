@@ -29,7 +29,8 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 }
 .hdr-logo{
   height:30px;width:30px;object-fit:contain;
-  filter:drop-shadow(0 0 10px var(--green)) brightness(0) invert(1) sepia(1) saturate(8) hue-rotate(85deg);
+  filter:brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(85deg) drop-shadow(0 0 8px var(--green));
+  mix-blend-mode:screen;
   animation:flicker 8s infinite;
 }
 @keyframes flicker{0%,95%,100%{opacity:1}96%{opacity:.7}97%{opacity:1}98%{opacity:.5}99%{opacity:1}}
@@ -157,7 +158,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 /* ── ADMIN LOGIN PAGE ── */
 #page-admin-login{align-items:center;justify-content:center;}
 .login-box{width:100%;max-width:340px;text-align:center;padding:20px;}
-.login-logo{width:80px;object-fit:contain;filter:drop-shadow(0 0 12px var(--green)) brightness(0) invert(1) sepia(1) saturate(8) hue-rotate(85deg);opacity:.7;margin-bottom:14px;}
+.login-logo{width:80px;object-fit:contain;filter:brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(85deg) drop-shadow(0 0 10px var(--green));mix-blend-mode:screen;opacity:.9;margin-bottom:14px;}
 .login-title{font-family:'Orbitron',monospace;font-size:.9rem;font-weight:900;letter-spacing:.18em;margin-bottom:3px;text-shadow:0 0 10px var(--green);}
 .login-sub{font-size:.58rem;color:var(--dim);letter-spacing:.25em;margin-bottom:20px;}
 .login-line{width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent);margin:14px 0;box-shadow:0 0 5px var(--green);}
@@ -171,7 +172,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 #page-admin{overflow-y:auto;}
 .admin-wrap{max-width:660px;margin:0 auto;padding:18px;}
 .admin-hdr{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:11px;border-bottom:1px solid var(--border);}
-.admin-hdr-logo{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 0 8px var(--green)) brightness(0) invert(1) sepia(1) saturate(8) hue-rotate(85deg);}
+.admin-hdr-logo{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(85deg) drop-shadow(0 0 7px var(--green));mix-blend-mode:screen;}
 .admin-hdr-title{font-family:'Orbitron',monospace;font-size:.95rem;font-weight:900;letter-spacing:.14em;}
 
 .panel{background:var(--panel);border:1px solid var(--border);padding:16px;position:relative;margin-bottom:16px;}
@@ -673,7 +674,7 @@ async function startCamera() {
     vid.srcObject = stream; await vid.play();
     scanning = true;
     document.getElementById('scan-status-bar').textContent = 'SCANNER ACTIVE — PRESENT QR CODE';
-    scanInterval = setInterval(tick, 200);
+    scanInterval = setInterval(tick, 150);
   } catch {
     document.getElementById('scan-status-bar').textContent = 'CAMERA DENIED — CHECK PERMISSIONS';
   }
@@ -689,7 +690,7 @@ function tick() {
   cvs.width = vid.videoWidth; cvs.height = vid.videoHeight;
   cctx.drawImage(vid, 0, 0);
   const img = cctx.getImageData(0, 0, cvs.width, cvs.height);
-  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
   if (!code) return;
   const now = Date.now();
   if (code.data === lastScan && now - lastScanTs < 3000) return;
@@ -916,7 +917,7 @@ async function startAdminCamera() {
     aVid.srcObject = aStream; await aVid.play(); aScanning = true; aCamOpen = true;
     document.getElementById('admin-scanner-wrap').style.display = 'block';
     document.getElementById('admin-cam-toggle-btn').textContent = '■ STOP CAMERA';
-    aInterval = setInterval(aTick, 200);
+    aInterval = setInterval(aTick, 150);
   } catch { toast('CAMERA DENIED', 'error'); }
 }
 function stopAdminCamera() {
@@ -929,7 +930,7 @@ function aTick() {
   if (!aScanning || aVid.readyState < 2) return;
   aCvs.width = aVid.videoWidth; aCvs.height = aVid.videoHeight; actx.drawImage(aVid, 0, 0);
   const img = actx.getImageData(0, 0, aCvs.width, aCvs.height);
-  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
   if (!code) return;
   const now = Date.now(); if (code.data === aLast && now - aLastTs < 3000) return;
   aLast = code.data; aLastTs = now;
