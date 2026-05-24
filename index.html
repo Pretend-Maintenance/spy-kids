@@ -271,6 +271,30 @@ input[type=text],input[type=password],select{font-family:'Share Tech Mono',monos
 input:focus,select:focus{border-color:var(--green);box-shadow:0 0 6px rgba(0,255,65,.15);}
 input::placeholder{color:rgba(0,255,65,.2);}
 .flabel{font-size:.6rem;color:var(--dim);letter-spacing:.14em;display:block;margin-bottom:4px;}
+
+/* ── TEST MODE MODAL ── */
+#test-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+#test-modal.active{display:flex;}
+.test-box{width:100%;max-width:420px;background:var(--black);border:1px solid var(--amber);box-shadow:0 0 30px rgba(255,179,0,.2);padding:22px;position:relative;}
+.test-box::before{content:'';position:absolute;top:-1px;left:16px;right:16px;height:1px;background:var(--amber);box-shadow:0 0 8px var(--amber);}
+.test-title{font-family:'Orbitron',monospace;font-size:.85rem;font-weight:900;letter-spacing:.18em;color:var(--amber);margin-bottom:4px;}
+.test-sub{font-size:.6rem;color:var(--dim);letter-spacing:.14em;margin-bottom:16px;}
+.test-section-lbl{font-size:.6rem;color:var(--dim);letter-spacing:.18em;margin:14px 0 6px;text-transform:uppercase;}
+.test-kid-grid{display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto;margin-bottom:4px;}
+.test-kid-btn{font-family:'Share Tech Mono',monospace;background:transparent;border:1px solid var(--border);color:var(--green);padding:8px 12px;font-size:.75rem;letter-spacing:.12em;cursor:pointer;text-align:left;transition:all .2s;display:flex;justify-content:space-between;align-items:center;}
+.test-kid-btn:hover{border-color:var(--green);background:rgba(0,255,65,.1);}
+.test-kid-btn .tkb-prog{font-size:.58rem;color:var(--dim);}
+.test-act-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.test-act-btn{font-family:'Share Tech Mono',monospace;background:transparent;border:1px solid var(--border);color:var(--green);padding:10px 4px;font-size:.65rem;letter-spacing:.08em;cursor:pointer;text-align:center;transition:all .2s;line-height:1.4;}
+.test-act-btn:hover{border-color:var(--green);background:rgba(0,255,65,.1);}
+.test-act-btn.done{border-color:var(--dim);color:var(--dim);opacity:.5;}
+.test-act-btn .tan{font-family:'Orbitron',monospace;font-size:.9rem;display:block;}
+.test-close{position:absolute;top:9px;right:11px;background:none;border:none;color:var(--dim);font-size:.75rem;cursor:pointer;font-family:'Share Tech Mono',monospace;}
+.test-close:hover{color:var(--red);}
+.test-who{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(0,255,65,.07);border:1px solid var(--green);margin-bottom:2px;}
+.test-who-name{font-family:'Orbitron',monospace;font-size:.85rem;font-weight:700;flex:1;}
+.test-btn{font-family:'Share Tech Mono',monospace;background:transparent;border:1px solid var(--amber);color:var(--amber);padding:6px 14px;font-size:.65rem;letter-spacing:.15em;cursor:pointer;transition:all .2s;}
+.test-btn:hover{background:rgba(255,179,0,.12);}
 </style>
 </head>
 <body>
@@ -292,7 +316,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
   <div class="dash-body">
     <!-- LEFT: SCANNER -->
     <div class="dash-col">
-      <div class="col-hdr"><div class="col-dot"></div>QR SCANNER</div>
+      <div class="col-hdr"><div class="col-dot"></div>QR SCANNER<span style="flex:1"></span><button class="test-btn" id="test-mode-btn" style="padding:2px 10px;font-size:.55rem;border-color:var(--amber);color:var(--amber)">⚡ TEST MODE</button></div>
       <div class="col-body">
         <div id="cam-wrap">
           <video id="cam-video" autoplay playsinline muted></video>
@@ -554,7 +578,89 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
 <div id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js">
+// ══════════════════════════════════════════
+//  TEST MODE
+// ══════════════════════════════════════════
+wire('test-mode-btn', openTestModal);
+wire('test-close-btn', () => document.getElementById('test-modal').classList.remove('active'));
+
+function openTestModal() {
+  renderTestModal();
+  document.getElementById('test-modal').classList.add('active');
+}
+
+function renderTestModal() {
+  // Kid grid
+  const kidGrid = document.getElementById('test-kid-grid');
+  if (!state.kids.length) {
+    kidGrid.innerHTML = '<div style="font-size:.65rem;color:var(--dim);padding:10px;border:1px dashed var(--border);text-align:center;letter-spacing:.1em">NO OPERATIVES YET — ADD SOME IN ADMIN FIRST</div>';
+  } else {
+    kidGrid.innerHTML = state.kids.map(k => {
+      const done = getProg(k.id).length;
+      const total = state.missions.length;
+      return `<button class="test-kid-btn" onclick="testScanKid('${k.id}')">
+        <span>${k.name}</span>
+        <span class="tkb-prog">${done}/${total} MISSIONS ${done === total ? '🏆' : ''}</span>
+      </button>`;
+    }).join('');
+  }
+
+  // Activity section — show if a kid is already locked in
+  const actSection = document.getElementById('test-activity-section');
+  if (curKid) {
+    const kid = getKid(curKid);
+    document.getElementById('test-who-name').textContent = kid ? kid.name : '—';
+    actSection.style.display = 'block';
+    renderTestActivities();
+  } else {
+    actSection.style.display = 'none';
+  }
+}
+
+function renderTestActivities() {
+  const done = curKid ? getProg(curKid) : [];
+  document.getElementById('test-act-grid').innerHTML = state.missions.map(m => `
+    <button class="test-act-btn ${done.includes(m.id) ? 'done' : ''}"
+      onclick="testScanActivity(${m.id})">
+      <span class="tan">${m.id}</span>
+      ${m.name}
+      ${done.includes(m.id) ? '<br>✓' : ''}
+    </button>`).join('');
+}
+
+function testScanKid(kidId) {
+  const kid = getKid(kidId); if (!kid) return;
+  // Simulate the QR scan
+  const url = makeQRUrl({ kid: kidId });
+  handleQR(url);
+  // Update modal to show activity section
+  document.getElementById('test-who-name').textContent = kid.name;
+  document.getElementById('test-activity-section').style.display = 'block';
+  // Refresh kid list to show updated selection
+  renderTestModal();
+  toast('TEST: SCANNED ' + kid.name);
+}
+
+function testScanActivity(missionId) {
+  if (!curKid) { toast('SCAN AN OPERATIVE FIRST', 'warn'); return; }
+  const done = getProg(curKid);
+  if (done.includes(missionId)) {
+    toast('MISSION ' + missionId + ' ALREADY COMPLETE', 'warn');
+    return;
+  }
+  const url = makeQRUrl({ activity: missionId });
+  handleQR(url);
+  // Small delay then refresh test modal to show updated ticks
+  setTimeout(() => renderTestActivities(), 300);
+}
+
+function testClearKid() {
+  curKid = null;
+  renderScannerBadge();
+  renderTestModal();
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // ── Squirrel logo ──
@@ -1090,5 +1196,27 @@ checkUrlParams();
 startCamera();
 renderScannerBadge();
 </script>
+
+<!-- TEST MODE MODAL -->
+<div id="test-modal">
+  <div class="test-box">
+    <button class="test-close" id="test-close-btn">✕ CLOSE</button>
+    <div class="test-title">⚡ TEST MODE</div>
+    <div class="test-sub">SIMULATE QR SCANS WITHOUT PHYSICAL CODES</div>
+
+    <div class="test-section-lbl">① SCAN AN OPERATIVE CARD</div>
+    <div class="test-kid-grid" id="test-kid-grid"></div>
+
+    <div id="test-activity-section" style="display:none">
+      <div class="test-section-lbl">② CURRENT OPERATIVE</div>
+      <div class="test-who" id="test-who-row">
+        <div class="test-who-name" id="test-who-name">—</div>
+        <button class="test-btn" onclick="testClearKid()" style="font-size:.55rem;padding:4px 8px">CHANGE</button>
+      </div>
+      <div class="test-section-lbl">③ SCAN AN ACTIVITY STATION</div>
+      <div class="test-act-grid" id="test-act-grid"></div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
