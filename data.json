@@ -1,0 +1,36 @@
+{
+  "password": "spy123",
+  "kids": [
+    {
+      "id": "k_6zw0qf",
+      "name": "SPY KID 1"
+    }
+  ],
+  "progress": {},
+  "missions": [
+    {
+      "id": 1,
+      "name": "INFILTRATION"
+    },
+    {
+      "id": 2,
+      "name": "DECRYPTION"
+    },
+    {
+      "id": 3,
+      "name": "EXTRACTION"
+    },
+    {
+      "id": 4,
+      "name": "SURVEILLANCE"
+    },
+    {
+      "id": 5,
+      "name": "SABOTAGE"
+    },
+    {
+      "id": 6,
+      "name": "EXFILTRATION"
+    }
+  ]
+}
