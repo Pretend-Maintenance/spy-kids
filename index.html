@@ -846,6 +846,9 @@ input::placeholder{color:rgba(0,255,65,.2);}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
+// ── Sync vars (declared first to avoid TDZ errors) ──
+let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
+
 // ── Squirrel logo ──
 const SQ = 'images/squirrel%20agent.jpeg';
 ['hdr-logo','login-logo','admin-logo'].forEach(id => {
@@ -1467,7 +1470,7 @@ updateOperativeDatalist();
 // ══════════════════════════════════════════
 const SYNC_KEY  = 'cherhill_sync_token';
 const SYNC_REPO = 'Pretend-Maintenance/spy-kids';
-let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
+// syncToken vars declared at top of script
 
 function loadSyncConfig() {
   try { syncToken = localStorage.getItem(SYNC_KEY) || null; } catch { syncToken = null; }
