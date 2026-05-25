@@ -519,9 +519,22 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
       <div class="op-list" id="kid-list"></div>
 
-      <div class="add-row">
-        <input type="text" id="new-kid-name" name="new-kid-name" placeholder="ENTER AGENT CODE NAME" maxlength="30" autocomplete="off">
-        <button class="btn btn-sm" id="add-kid-btn">+ ADD</button>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <div>
+          <label class="flabel" for="new-kid-codename">AGENT CODENAME *</label>
+          <input type="text" id="new-kid-codename" name="new-kid-codename" placeholder="E.G. MIDNIGHT DAGGER" maxlength="30" autocomplete="off">
+        </div>
+        <div style="display:flex;gap:6px">
+          <div style="flex:1">
+            <label class="flabel" for="new-kid-aka">AKA (REAL NAME)</label>
+            <input type="text" id="new-kid-aka" name="new-kid-aka" placeholder="E.G. BEN" maxlength="40" autocomplete="off">
+          </div>
+          <div style="flex:1">
+            <label class="flabel" for="new-kid-skill">SPECIAL SKILL</label>
+            <input type="text" id="new-kid-skill" name="new-kid-skill" placeholder="E.G. BEING RELENTLESS" maxlength="50" autocomplete="off">
+          </div>
+        </div>
+        <button class="btn btn-sm" id="add-kid-btn" style="align-self:flex-start">+ ADD OPERATIVE</button>
       </div>
     </div>
 
@@ -1118,14 +1131,20 @@ function renderSelects() {
 }
 
 wire('add-kid-btn', () => {
-  const inp = document.getElementById('new-kid-name');
-  const name = inp.value.trim().toUpperCase();
-  if (!name) { toast('ENTER A NAME', 'warn'); return; }
-  if (state.kids.find(k => k.name === name)) { toast('ALREADY EXISTS', 'warn'); return; }
-  state.kids.push({ id: genId(), name }); saveState(); inp.value = ''; renderAdmin();
-  addLog(name, 'OPERATIVE REGISTERED'); toast('ADDED: ' + name);
+  const codename = document.getElementById('new-kid-codename').value.trim().toUpperCase();
+  const aka      = document.getElementById('new-kid-aka').value.trim();
+  const skill    = document.getElementById('new-kid-skill').value.trim();
+  if (!codename) { toast('ENTER A CODENAME', 'warn'); return; }
+  if (state.kids.find(k => k.name === codename)) { toast('ALREADY EXISTS', 'warn'); return; }
+  state.kids.push({ id: genId(), name: codename, aka, skill });
+  saveState();
+  document.getElementById('new-kid-codename').value = '';
+  document.getElementById('new-kid-aka').value = '';
+  document.getElementById('new-kid-skill').value = '';
+  renderAdmin();
+  addLog(codename, 'OPERATIVE REGISTERED'); toast('ADDED: ' + codename);
 });
-document.getElementById('new-kid-name').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('add-kid-btn').click(); });
+document.getElementById('new-kid-codename').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('add-kid-btn').click(); });
 
 function removeKid(id) {
   if (!confirm('REMOVE OPERATIVE?')) return;
