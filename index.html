@@ -831,9 +831,34 @@ function testClearKid() {
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- TEST MODE MODAL -->
+<div id="test-modal">
+  <div class="test-box">
+    <button class="test-close" id="test-close-btn">✕ CLOSE</button>
+    <div class="test-title">⚡ TEST MODE</div>
+    <div class="test-sub">SIMULATE QR SCANS WITHOUT PHYSICAL CODES</div>
+
+    <div class="test-section-lbl">① SCAN AN OPERATIVE CARD</div>
+    <div class="test-kid-grid" id="test-kid-grid"></div>
+
+    <div id="test-activity-section" style="display:none">
+      <div class="test-section-lbl">② CURRENT OPERATIVE</div>
+      <div class="test-who" id="test-who-row">
+        <div class="test-who-name" id="test-who-name">—</div>
+        <button class="test-btn" onclick="testClearKid()" style="font-size:.55rem;padding:4px 8px">CHANGE</button>
+      </div>
+      <div class="test-section-lbl">③ SCAN AN ACTIVITY STATION</div>
+      <div class="test-act-grid" id="test-act-grid"></div>
+    </div>
+  </div>
+</div>
+
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+
 // ── Squirrel logo ──
-const SQ = 'images/squirrel.png';
+const SQ = 'images/squirrel agent.jpeg';
 ['hdr-logo','login-logo','admin-logo'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.src = SQ;
@@ -1409,28 +1434,25 @@ function checkUrlParams() {
 checkUrlParams();
 startCamera();
 renderScannerBadge();
+
+// Expose functions needed by inline HTML event handlers
+window.mobTab = mobTab;
+window.showPage = showPage;
+window.resetScanner = resetScanner;
+window.clearCurrentKid = clearCurrentKid;
+window.editKid = editKid;
+window.removeKid = removeKid;
+window.updateMission = updateMission;
+window.toggleM = toggleM;
+window.testScanKid = testScanKid;
+window.testScanActivity = testScanActivity;
+window.testClearKid = testClearKid;
+window.openVideo = openVideo;
+window.closeVideo = closeVideo;
+
+
+}); // end DOMContentLoaded
 </script>
 
-<!-- TEST MODE MODAL -->
-<div id="test-modal">
-  <div class="test-box">
-    <button class="test-close" id="test-close-btn">✕ CLOSE</button>
-    <div class="test-title">⚡ TEST MODE</div>
-    <div class="test-sub">SIMULATE QR SCANS WITHOUT PHYSICAL CODES</div>
-
-    <div class="test-section-lbl">① SCAN AN OPERATIVE CARD</div>
-    <div class="test-kid-grid" id="test-kid-grid"></div>
-
-    <div id="test-activity-section" style="display:none">
-      <div class="test-section-lbl">② CURRENT OPERATIVE</div>
-      <div class="test-who" id="test-who-row">
-        <div class="test-who-name" id="test-who-name">—</div>
-        <button class="test-btn" onclick="testClearKid()" style="font-size:.55rem;padding:4px 8px">CHANGE</button>
-      </div>
-      <div class="test-section-lbl">③ SCAN AN ACTIVITY STATION</div>
-      <div class="test-act-grid" id="test-act-grid"></div>
-    </div>
-  </div>
-</div>
 </body>
 </html>
