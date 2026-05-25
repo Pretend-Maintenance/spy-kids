@@ -671,6 +671,31 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
     <div class="admin-divider"></div>
 
+    <!-- ══ SECTION: BACKUP & RESTORE ══ -->
+    <div class="admin-section">
+      <div class="section-hdr">
+        <div class="section-icon">💾</div>
+        <div class="section-title">BACKUP &amp; RESTORE</div>
+        <div class="section-desc">SAVE OR LOAD OPERATIVES</div>
+      </div>
+      <div class="card">
+        <p style="font-size:.62rem;color:var(--dim);margin-bottom:12px;line-height:1.7;letter-spacing:.07em">
+          Export saves all operatives (codenames, AKAs, skills) and their mission progress to a file.
+          Import restores them on any device — QR codes regenerate automatically from the same IDs.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" id="export-btn">⬇ EXPORT OPERATIVES</button>
+          <label class="btn btn-sm btn-amber" id="import-label" style="cursor:pointer;display:flex;align-items:center">
+            ⬆ IMPORT OPERATIVES
+            <input type="file" id="import-file" accept=".json" style="display:none">
+          </label>
+        </div>
+        <div id="import-status" style="font-size:.62rem;margin-top:8px;min-height:18px;letter-spacing:.1em"></div>
+      </div>
+    </div>
+
+    <div class="admin-divider"></div>
+
     <!-- ══ SECTION: RESET PROGRESS ══ -->
     <div class="admin-section">
       <div class="section-hdr">
@@ -1387,6 +1412,108 @@ renderScannerBadge();
 updateOperativeDatalist();
 
 
+
+// ══════════════════════════════════════════
+//  BACKUP & RESTORE
+// ══════════════════════════════════════════
+function exportOperatives() {
+  const payload = {
+    version: 1,
+    exported: new Date().toISOString(),
+    agency: 'Cherhill Spy Academy',
+    kids: state.kids,
+    progress: state.progress,
+    missions: state.missions
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0,10);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'cherhill-spy-academy-' + date + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('EXPORTED ' + state.kids.length + ' OPERATIVES');
+}
+
+function importOperatives(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('import-status');
+  statusEl.style.color = 'var(--dim)';
+  statusEl.textContent = 'READING FILE...';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      // Validate
+      if (!data.kids || !Array.isArray(data.kids)) {
+        statusEl.style.color = 'var(--red)';
+        statusEl.textContent = '⚠ INVALID FILE — NO OPERATIVES FOUND';
+        return;
+      }
+      const count = data.kids.length;
+      // Merge or replace?
+      const existing = state.kids.length;
+      let msg = '';
+      if (existing > 0) {
+        const choice = confirm(
+          'IMPORT ' + count + ' OPERATIVES?\n\n' +
+          'OK = MERGE with existing ' + existing + ' operatives\n' +
+          'CANCEL = REPLACE all existing operatives'
+        );
+        if (choice) {
+          // Merge — add only operatives not already present by ID
+          let added = 0;
+          data.kids.forEach(k => {
+            if (!state.kids.find(e => e.id === k.id)) {
+              state.kids.push(k);
+              added++;
+            } else {
+              // Update existing fields
+              const existing = state.kids.find(e => e.id === k.id);
+              Object.assign(existing, k);
+            }
+          });
+          // Merge progress too
+          if (data.progress) {
+            Object.keys(data.progress).forEach(id => {
+              if (!state.progress[id]) state.progress[id] = [];
+              data.progress[id].forEach(m => {
+                if (!state.progress[id].includes(m)) state.progress[id].push(m);
+              });
+            });
+          }
+          msg = 'MERGED — ' + count + ' OPERATIVES LOADED';
+        } else {
+          // Replace
+          state.kids     = data.kids;
+          state.progress = data.progress || {};
+          if (data.missions) state.missions = data.missions;
+          msg = 'REPLACED — ' + count + ' OPERATIVES LOADED';
+        }
+      } else {
+        // No existing operatives — just load
+        state.kids     = data.kids;
+        state.progress = data.progress || {};
+        if (data.missions) state.missions = data.missions;
+        msg = count + ' OPERATIVES LOADED';
+      }
+      saveState();
+      renderAdmin();
+      renderScannerBadge();
+      updateOperativeDatalist();
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = '✓ ' + msg;
+      toast(msg);
+    } catch(err) {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = '⚠ COULD NOT READ FILE: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+  // Reset input so same file can be re-imported
+  document.getElementById('import-file').value = '';
+}
 // ══════════════════════════════════════════
 //  MANUAL LOOKUP
 // ══════════════════════════════════════════
@@ -1571,11 +1698,16 @@ function testClearKid() {
   renderTestModal();
 }
 
+wire('export-btn', exportOperatives);
+document.getElementById('import-file') && document.getElementById('import-file').addEventListener('change', e => {
+  importOperatives(e.target.files[0]);
+});
 wire('manual-submit-btn', manualLookup);
 document.getElementById('manual-input') && document.getElementById('manual-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') manualLookup();
 });
 
+window.exportOperatives = exportOperatives;
 // Expose functions needed by inline HTML event handlers
 window.mobTab = mobTab;
 window.showPage = showPage;
