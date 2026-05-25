@@ -386,6 +386,12 @@ input::placeholder{color:rgba(0,255,65,.2);}
   .mob-tabs { padding-bottom: max(0px, env(safe-area-inset-bottom)); height: calc(52px + max(0px, env(safe-area-inset-bottom))); }
   .dash-hdr { padding-top: max(0px, env(safe-area-inset-top)); }
 }
+
+.op-card-field{font-size:.68rem;letter-spacing:.1em;margin-top:3px;color:var(--dim);}
+.op-card-lbl{color:var(--green);font-size:.58rem;letter-spacing:.18em;margin-right:4px;}
+.op-item-details{flex:1;min-width:0;}
+.op-item-field{font-size:.62rem;color:var(--dim);letter-spacing:.08em;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.op-field-lbl{color:var(--green);font-size:.55rem;letter-spacing:.15em;margin-right:3px;}
 </style>
 </head>
 <body>
@@ -679,8 +685,18 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <button class="modal-close" id="quickadd-close-btn">✕ CLOSE</button>
     <div class="modal-title">🐿️ NEW OPERATIVE</div>
     <div class="field">
-      <label>AGENT CODE NAME</label>
+      <label for="quickadd-name">AGENT CODENAME *</label>
       <input type="text" id="quickadd-name" name="quickadd-name" placeholder="E.G. SHADOW FOX" maxlength="30" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1">
+        <label for="quickadd-aka">AKA (REAL NAME)</label>
+        <input type="text" id="quickadd-aka" name="quickadd-aka" placeholder="E.G. BEN" maxlength="40" autocomplete="off">
+      </div>
+      <div class="field" style="flex:1">
+        <label for="quickadd-skill">SPECIAL SKILL</label>
+        <input type="text" id="quickadd-skill" name="quickadd-skill" placeholder="E.G. RELENTLESS" maxlength="50" autocomplete="off">
+      </div>
     </div>
     <div class="qr-preview-area" id="quickadd-qr-preview" style="display:none">
       <div class="qr-name-lbl" id="quickadd-qr-name"></div>
@@ -747,7 +763,7 @@ function saveState() { saveLocal(); }
 let state = loadState();
 function getKid(id) { return state.kids.find(k => k.id === id); }
 function genId() { return 'k_' + Math.random().toString(36).slice(2,8); }
-function getProg(kidId) { return state.progress[kidId] || []; }
+function getProg(kidId) { return (state.progress[kidId] || []).filter(x => x !== 'intro'); }
 function markDone(kidId, mid) {
   if (!state.progress[kidId]) state.progress[kidId] = [];
   if (!state.progress[kidId].includes(mid)) state.progress[kidId].push(mid);
@@ -916,6 +932,12 @@ function handleQR(data) {
     addLog(kid.name, 'OPERATIVE IDENTIFIED');
     toast('OPERATIVE: ' + kid.name);
     document.getElementById('scan-status-bar').textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
+    if (!state.progress[kidId]) state.progress[kidId] = [];
+    if (!state.progress[kidId].includes('intro')) {
+      state.progress[kidId].push('intro');
+      saveState();
+      setTimeout(() => openVideo('intro'), 400);
+    }
     return;
   }
   if (actN) {
@@ -946,7 +968,9 @@ function renderScannerBadge() {
   scroll.innerHTML = `
     <div class="op-card">
       <div class="op-card-name">${kid.name}</div>
-      <div class="op-card-meta">MISSIONS COMPLETE: ${done.length} / ${state.missions.length}</div>
+      ${kid.aka   ? `<div class="op-card-field"><span class="op-card-lbl">AKA</span> ${kid.aka}</div>` : ''}
+      ${kid.skill ? `<div class="op-card-field"><span class="op-card-lbl">SPECIAL SKILL</span> ${kid.skill}</div>` : ''}
+      <div class="op-card-meta" style="margin-top:6px">MISSIONS COMPLETE: ${done.length} / ${state.missions.length}</div>
     </div>
     <div class="mgrid">${state.missions.map(m => `
       <div class="mc ${done.includes(m.id) ? 'done' : ''}">
@@ -966,10 +990,18 @@ function renderScannerBadge() {
 //  VIDEO
 // ══════════════════════════════════════════
 function openVideo(n) {
-  const m = state.missions.find(x => x.id === n);
-  document.getElementById('vm-title').textContent = 'MISSION ' + n + ': ' + (m ? m.name : '');
+  let title, src;
+  if (n === 'intro') {
+    title = '🐿️ SQUIRREL SQUAD — MISSION BRIEFING';
+    src   = 'videos/intro.mp4';
+  } else {
+    const m = state.missions.find(x => x.id === n);
+    title = 'MISSION ' + n + ': ' + (m ? m.name : '');
+    src   = 'videos/activity' + n + '.mp4';
+  }
+  document.getElementById('vm-title').textContent = title;
   const v = document.getElementById('mission-video');
-  v.src = 'videos/activity' + n + '.mp4'; v.currentTime = 0;
+  v.src = src; v.currentTime = 0;
   document.getElementById('video-modal').classList.add('active');
   v.play().catch(() => {});
   v.onended = closeVideo;
@@ -1007,10 +1039,13 @@ document.getElementById('quickadd-name').addEventListener('keydown', e => {
 });
 
 wire('gen-quickadd-btn', async () => {
-  const name = document.getElementById('quickadd-name').value.trim().toUpperCase();
-  if (!name) { toast('ENTER A NAME', 'warn'); return; }
+  const name  = document.getElementById('quickadd-name').value.trim().toUpperCase();
+  const aka   = (document.getElementById('quickadd-aka')||{}).value||'';
+  const skill = (document.getElementById('quickadd-skill')||{}).value||'';
+  if (!name) { toast('ENTER A CODENAME', 'warn'); return; }
   let kid = state.kids.find(k => k.name === name);
-  if (!kid) { kid = { id: genId(), name }; state.kids.push(kid); saveState(); }
+  if (!kid) { kid = { id: genId(), name, aka: aka.trim(), skill: skill.trim() }; state.kids.push(kid); saveState(); }
+  else { kid.aka = aka.trim(); kid.skill = skill.trim(); saveState(); }
   const url = makeQRUrl({ kid: kid.id });
   document.getElementById('quickadd-qr-name').textContent = name;
   document.getElementById('quickadd-qr-url').textContent = url;
