@@ -476,7 +476,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="login-line"></div>
     <div class="login-field">
       <label>ACCESS CODE</label>
-      <input type="password" id="admin-pw-input" placeholder="••••••••">
+      <input type="password" id="admin-pw-input" name="admin-pw" placeholder="••••••••" autocomplete="current-password">
       <div class="login-err" id="login-err"></div>
     </div>
     <div class="btn-row">
@@ -514,7 +514,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
       <div class="op-list" id="kid-list"></div>
 
       <div class="add-row">
-        <input type="text" id="new-kid-name" placeholder="ENTER AGENT CODE NAME" maxlength="30">
+        <input type="text" id="new-kid-name" name="new-kid-name" placeholder="ENTER AGENT CODE NAME" maxlength="30" autocomplete="off">
         <button class="btn btn-sm" id="add-kid-btn">+ ADD</button>
       </div>
     </div>
@@ -638,8 +638,8 @@ input::placeholder{color:rgba(0,255,65,.2);}
       </div>
       <div class="card">
         <div class="card-row">
-          <input type="password" id="new-pw" placeholder="NEW CODE" style="flex:1">
-          <input type="password" id="new-pw2" placeholder="CONFIRM CODE" style="flex:1">
+          <input type="password" id="new-pw" name="new-pw" placeholder="NEW CODE" style="flex:1">
+          <input type="password" id="new-pw2" name="new-pw2" placeholder="CONFIRM CODE" style="flex:1">
           <button class="btn btn-sm btn-amber" id="save-pw-btn">SAVE</button>
         </div>
       </div>
@@ -652,6 +652,27 @@ input::placeholder{color:rgba(0,255,65,.2);}
   </div>
 </div>
 
+
+<!-- TEST MODE MODAL -->
+<div id="test-modal">
+  <div class="test-box">
+    <button class="modal-close" id="test-close-btn">✕ CLOSE</button>
+    <div class="test-title">⚡ TEST MODE</div>
+    <div class="test-sub">SIMULATE QR SCANS WITHOUT PHYSICAL CODES</div>
+    <div class="test-section-lbl">① SCAN AN OPERATIVE CARD</div>
+    <div class="test-kid-grid" id="test-kid-grid"></div>
+    <div id="test-activity-section" style="display:none">
+      <div class="test-section-lbl">② CURRENT OPERATIVE</div>
+      <div class="test-who" id="test-who-row">
+        <div class="test-who-name" id="test-who-name">—</div>
+        <button class="test-btn" onclick="testClearKid()" style="font-size:.55rem;padding:4px 8px">CHANGE</button>
+      </div>
+      <div class="test-section-lbl">③ SCAN AN ACTIVITY STATION</div>
+      <div class="test-act-grid" id="test-act-grid"></div>
+    </div>
+  </div>
+</div>
+
 <!-- QUICK ADD MODAL -->
 <div class="modal-bg" id="quickadd-modal">
   <div class="modal-box">
@@ -659,7 +680,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="modal-title">🐿️ NEW OPERATIVE</div>
     <div class="field">
       <label>AGENT CODE NAME</label>
-      <input type="text" id="quickadd-name" placeholder="E.G. SHADOW FOX" maxlength="30">
+      <input type="text" id="quickadd-name" name="quickadd-name" placeholder="E.G. SHADOW FOX" maxlength="30" autocomplete="off">
     </div>
     <div class="qr-preview-area" id="quickadd-qr-preview" style="display:none">
       <div class="qr-name-lbl" id="quickadd-qr-name"></div>
@@ -1046,9 +1067,9 @@ function renderMissionConfig() {
   document.getElementById('mission-config-list').innerHTML = `<div class="mission-list">` + state.missions.map(m => `
     <div class="mission-row">
       <div class="mission-badge">${m.id}</div>
-      <input type="text" value="${esc(m.name)}" maxlength="20"
+      <input type="text" id="mission-name-${m.id}" name="mission-name-${m.id}" value="${esc(m.name)}" maxlength="20"
         oninput="updateMission(${m.id},this.value)"
-        placeholder="MISSION ${m.id} NAME">
+        placeholder="MISSION ${m.id} NAME" autocomplete="off">
     </div>`).join('') + `</div>`;
 }
 function updateMission(id, v) { const m = state.missions.find(x => x.id === id); if (m) { m.name = v.toUpperCase(); saveState(); } }
@@ -1412,7 +1433,6 @@ function testClearKid() {
 window.mobTab = mobTab;
 window.showPage = showPage;
 window.resetScanner = resetScanner;
-window.clearCurrentKid = clearCurrentKid;
 window.editKid = editKid;
 window.removeKid = removeKid;
 window.updateMission = updateMission;
