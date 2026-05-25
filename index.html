@@ -429,7 +429,10 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <span class="hdr-title">CHERHILL SPY ACADEMY</span>
     <span class="hdr-sub">OPERATIVE COMMAND</span>
     <div class="hdr-spacer"></div>
-
+    <div id="sync-status-pill" style="display:none;align-items:center;gap:5px;font-size:.6rem;letter-spacing:.12em;color:var(--dim);border:1px solid var(--border);padding:3px 8px;margin-right:6px">
+      <div id="sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--dim);transition:all .3s"></div>
+      <span id="sync-label">OFFLINE</span>
+    </div>
     <button class="hdr-btn" id="admin-btn">⚙ ADMIN</button>
   </div>
 
@@ -714,6 +717,40 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
     <div class="admin-divider"></div>
 
+    <!-- ══ SECTION: LIVE SYNC ══ -->
+    <div class="admin-section">
+      <div class="section-hdr">
+        <div class="section-icon">🔄</div>
+        <div class="section-title">LIVE SYNC</div>
+        <div class="section-desc">TABLET + LAPTOP</div>
+      </div>
+      <div class="card">
+        <p style="font-size:.62rem;color:var(--dim);margin-bottom:12px;line-height:1.8;letter-spacing:.07em">
+          Connect each device with your GitHub token. Scans on the tablet appear on the laptop within seconds.
+        </p>
+        <div id="sync-disconnected">
+          <label class="flabel" for="sync-token-input">GITHUB TOKEN</label>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <input type="password" id="sync-token-input" name="sync-token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" style="flex:1">
+            <button class="btn btn-sm btn-amber" id="sync-connect-btn" style="white-space:nowrap">CONNECT</button>
+          </div>
+          <div style="font-size:.58rem;color:var(--dim);margin-top:6px;letter-spacing:.08em">Saved on this device only.</div>
+        </div>
+        <div id="sync-connected" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(0,255,65,.07);border:1px solid var(--green)">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0"></div>
+            <div style="flex:1">
+              <div style="font-size:.72rem;letter-spacing:.1em;color:var(--green)" id="sync-status-txt">CONNECTED</div>
+              <div id="sync-last-saved" style="font-size:.58rem;color:var(--dim);margin-top:2px">Syncing...</div>
+            </div>
+            <button class="btn btn-sm btn-danger" id="sync-disconnect-btn">DISCONNECT</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-divider"></div>
+
     <!-- ══ SECTION: SETTINGS ══ -->
     <div class="admin-section">
       <div class="section-hdr">
@@ -837,7 +874,7 @@ const DEF = [
 function loadState() { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : fresh(); } catch { return fresh(); } }
 function fresh() { return { password: 'spy123', kids: [], progress: {}, missions: DEF.map(m => ({...m})) }; }
 function saveLocal() { localStorage.setItem(SK, JSON.stringify(state)); }
-function saveState() { saveLocal(); }
+function saveState() { saveLocal(); if (syncToken) schedulePush(); }
 
 let state = loadState();
 function getKid(id) { return state.kids.find(k => k.id === id); }
@@ -1154,6 +1191,9 @@ wire('confirm-quickadd-btn', () => {
 // ══════════════════════════════════════════
 function renderAdmin() {
   renderKidList(); renderMissionConfig(); renderSelects(); renderAQRs(); updateOperativeDatalist();
+  const inp = document.getElementById('sync-token-input');
+  if (inp && syncToken) inp.value = syncToken;
+  setSyncUI(!!syncToken);
 }
 
 function renderKidList() {
@@ -1406,6 +1446,14 @@ function checkUrlParams() {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
+loadSyncConfig();
+if (syncToken) {
+  setSyncUI(true); setSyncDot('syncing', 'CONNECTING...');
+  syncFetch().then(ok => {
+    if (ok) { setSyncDot('ok', 'SYNCED'); startSyncPoll(); renderScannerBadge(); }
+    else { setSyncUI(false); setSyncDot('err', 'ERROR'); }
+  });
+}
 checkUrlParams();
 startCamera();
 renderScannerBadge();
@@ -1413,6 +1461,119 @@ updateOperativeDatalist();
 
 
 
+
+// ══════════════════════════════════════════
+//  LIVE SYNC
+// ══════════════════════════════════════════
+const SYNC_KEY  = 'cherhill_sync_token';
+const SYNC_REPO = 'Pretend-Maintenance/spy-kids';
+let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
+
+function loadSyncConfig() {
+  try { syncToken = localStorage.getItem(SYNC_KEY) || null; } catch { syncToken = null; }
+}
+function saveSyncConfig() {
+  if (syncToken) localStorage.setItem(SYNC_KEY, syncToken);
+  else localStorage.removeItem(SYNC_KEY);
+}
+function setSyncUI(connected) {
+  const pill = document.getElementById('sync-status-pill');
+  const disc = document.getElementById('sync-disconnected');
+  const conn = document.getElementById('sync-connected');
+  if (pill) pill.style.display = connected ? 'flex' : 'none';
+  if (disc) disc.style.display = connected ? 'none' : 'block';
+  if (conn) conn.style.display = connected ? 'block' : 'none';
+}
+function setSyncDot(status, text) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  const stxt = document.getElementById('sync-status-txt');
+  const c = {ok:'#00ff41', syncing:'#ffb300', err:'#ff003c'}[status] || '#00b32c';
+  if (dot) { dot.style.background = c; dot.style.boxShadow = '0 0 6px ' + c; }
+  if (lbl) lbl.textContent = text;
+  if (stxt) stxt.textContent = text;
+}
+async function syncFetch() {
+  if (!syncToken) return false;
+  try {
+    const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
+      headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (r.status === 404) { await syncPush(true); return true; }
+    if (!r.ok) return false;
+    const d = await r.json();
+    syncSha = d.sha;
+    const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
+    if (JSON.stringify(remote) !== JSON.stringify(state)) {
+      state = remote; saveLocal();
+      renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
+      const p = document.querySelector('.page.active');
+      if (p && p.id === 'page-admin') renderAdmin();
+    }
+    return true;
+  } catch { return false; }
+}
+async function syncPush(isNew) {
+  if (!syncToken) return;
+  setSyncDot('syncing', 'SAVING...');
+  try {
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
+    const body = { message: 'Cherhill Spy sync', content };
+    if (syncSha && !isNew) body.sha = syncSha;
+    const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + syncToken, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
+      body: JSON.stringify(body)
+    });
+    if (r.ok) {
+      const d = await r.json(); syncSha = d.content.sha;
+      setSyncDot('ok', 'SYNCED');
+      const t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const el = document.getElementById('sync-last-saved');
+      if (el) el.textContent = 'Last saved: ' + t;
+    } else {
+      const err = await r.json();
+      if (err.message && err.message.includes('sha')) { await syncFetch(); await syncPush(); }
+      else setSyncDot('err', 'SYNC ERROR');
+    }
+  } catch { setSyncDot('err', 'ERROR'); }
+}
+function schedulePush() {
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(syncPush, 1000);
+}
+function startSyncPoll() {
+  clearInterval(syncPollTimer);
+  syncPollTimer = setInterval(async () => {
+    setSyncDot('syncing', 'CHECKING...');
+    const ok = await syncFetch();
+    setSyncDot(ok ? 'ok' : 'err', ok ? 'SYNCED' : 'SYNC ERROR');
+  }, 10000);
+}
+async function connectSync() {
+  const inp = document.getElementById('sync-token-input');
+  const token = inp ? inp.value.trim() : '';
+  if (!token) { toast('ENTER YOUR GITHUB TOKEN', 'warn'); return; }
+  syncToken = token;
+  setSyncDot('syncing', 'CONNECTING...');
+  const ok = await syncFetch();
+  if (ok) {
+    saveSyncConfig(); setSyncUI(true); setSyncDot('ok', 'SYNCED'); startSyncPoll();
+    toast('SYNC CONNECTED');
+  } else {
+    syncToken = null; setSyncDot('err', 'FAILED');
+    toast('FAILED — CHECK TOKEN', 'error');
+  }
+}
+function disconnectSync() {
+  if (!confirm('DISCONNECT SYNC?')) return;
+  syncToken = null; syncSha = null; saveSyncConfig();
+  clearInterval(syncPollTimer); clearTimeout(syncPushTimer);
+  setSyncUI(false); setSyncDot('off', 'OFFLINE');
+  const pill = document.getElementById('sync-status-pill');
+  if (pill) pill.style.display = 'none';
+  toast('DISCONNECTED', 'warn');
+}
 // ══════════════════════════════════════════
 //  BACKUP & RESTORE
 // ══════════════════════════════════════════
@@ -1698,6 +1859,8 @@ function testClearKid() {
   renderTestModal();
 }
 
+wire('sync-connect-btn', connectSync);
+wire('sync-disconnect-btn', disconnectSync);
 wire('export-btn', exportOperatives);
 document.getElementById('import-file') && document.getElementById('import-file').addEventListener('change', e => {
   importOperatives(e.target.files[0]);
