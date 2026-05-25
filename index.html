@@ -688,177 +688,13 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
 <div id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js">
-
-// ══════════════════════════════════════════
-//  MOBILE TABS
-// ══════════════════════════════════════════
-let logCount = 0;
-
-function mobTab(tab) {
-  // Only applies on mobile (tabs hidden on desktop via CSS)
-  const cols = { scanner: 'col-scanner', feed: 'col-feed', log: 'col-log' };
-  const tabs = { scanner: 'tab-scanner', feed: 'tab-feed', log: 'tab-log' };
-  Object.values(cols).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('mob-active');
-  });
-  Object.values(tabs).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('active');
-  });
-  const col = document.getElementById(cols[tab]);
-  const tabEl = document.getElementById(tabs[tab]);
-  if (col) col.classList.add('mob-active');
-  if (tabEl) tabEl.classList.add('active');
-  // Clear badge when viewing that tab
-  if (tab === 'feed') clearBadge('tab-feed-badge');
-  if (tab === 'log')  clearBadge('tab-log-badge');
-  // Restart camera if switching back to scanner
-  if (tab === 'scanner' && !scanning) resetScanner();
-}
-
-function bumpBadge(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  // Check if mobile tab bar is visible
-  const tabs = document.getElementById('mob-tabs');
-  if (!tabs || getComputedStyle(tabs).display === 'none') return;
-  // Only bump if not currently viewing that tab
-  const tabMap = { 'tab-feed-badge': 'col-feed', 'tab-log-badge': 'col-log' };
-  const col = document.getElementById(tabMap[id]);
-  if (col && col.classList.contains('mob-active')) return;
-  const cur = parseInt(el.textContent) || 0;
-  el.textContent = cur + 1;
-  el.classList.add('show');
-}
-
-function clearBadge(id) {
-  const el = document.getElementById(id);
-  if (el) { el.textContent = '0'; el.classList.remove('show'); }
-}
-
-// When operative identified or mission complete, auto-switch to live feed on mobile
-function mobAutoFeed() {
-  const tabs = document.getElementById('mob-tabs');
-  if (tabs && getComputedStyle(tabs).display !== 'none') {
-    const feedCol = document.getElementById('col-feed');
-    if (feedCol && !feedCol.classList.contains('mob-active')) {
-      bumpBadge('tab-feed-badge');
-    }
-  }
-}
-// ══════════════════════════════════════════
-//  TEST MODE
-// ══════════════════════════════════════════
-wire('test-mode-btn', openTestModal);
-wire('test-close-btn', () => document.getElementById('test-modal').classList.remove('active'));
-
-function openTestModal() {
-  renderTestModal();
-  document.getElementById('test-modal').classList.add('active');
-}
-
-function renderTestModal() {
-  // Kid grid
-  const kidGrid = document.getElementById('test-kid-grid');
-  if (!state.kids.length) {
-    kidGrid.innerHTML = '<div style="font-size:.65rem;color:var(--dim);padding:10px;border:1px dashed var(--border);text-align:center;letter-spacing:.1em">NO OPERATIVES YET — ADD SOME IN ADMIN FIRST</div>';
-  } else {
-    kidGrid.innerHTML = state.kids.map(k => {
-      const done = getProg(k.id).length;
-      const total = state.missions.length;
-      return `<button class="test-kid-btn" onclick="testScanKid('${k.id}')">
-        <span>${k.name}</span>
-        <span class="tkb-prog">${done}/${total} MISSIONS ${done === total ? '🏆' : ''}</span>
-      </button>`;
-    }).join('');
-  }
-
-  // Activity section — show if a kid is already locked in
-  const actSection = document.getElementById('test-activity-section');
-  if (curKid) {
-    const kid = getKid(curKid);
-    document.getElementById('test-who-name').textContent = kid ? kid.name : '—';
-    actSection.style.display = 'block';
-    renderTestActivities();
-  } else {
-    actSection.style.display = 'none';
-  }
-}
-
-function renderTestActivities() {
-  const done = curKid ? getProg(curKid) : [];
-  document.getElementById('test-act-grid').innerHTML = state.missions.map(m => `
-    <button class="test-act-btn ${done.includes(m.id) ? 'done' : ''}"
-      onclick="testScanActivity(${m.id})">
-      <span class="tan">${m.id}</span>
-      ${m.name}
-      ${done.includes(m.id) ? '<br>✓' : ''}
-    </button>`).join('');
-}
-
-function testScanKid(kidId) {
-  const kid = getKid(kidId); if (!kid) return;
-  // Simulate the QR scan
-  const url = makeQRUrl({ kid: kidId });
-  handleQR(url);
-  // Update modal to show activity section
-  document.getElementById('test-who-name').textContent = kid.name;
-  document.getElementById('test-activity-section').style.display = 'block';
-  // Refresh kid list to show updated selection
-  renderTestModal();
-  toast('TEST: SCANNED ' + kid.name);
-}
-
-function testScanActivity(missionId) {
-  if (!curKid) { toast('SCAN AN OPERATIVE FIRST', 'warn'); return; }
-  const done = getProg(curKid);
-  if (done.includes(missionId)) {
-    toast('MISSION ' + missionId + ' ALREADY COMPLETE', 'warn');
-    return;
-  }
-  const url = makeQRUrl({ activity: missionId });
-  handleQR(url);
-  // Small delay then refresh test modal to show updated ticks
-  setTimeout(() => renderTestActivities(), 300);
-}
-
-function testClearKid() {
-  curKid = null;
-  renderScannerBadge();
-  renderTestModal();
-}
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-<!-- TEST MODE MODAL -->
-<div id="test-modal">
-  <div class="test-box">
-    <button class="test-close" id="test-close-btn">✕ CLOSE</button>
-    <div class="test-title">⚡ TEST MODE</div>
-    <div class="test-sub">SIMULATE QR SCANS WITHOUT PHYSICAL CODES</div>
-
-    <div class="test-section-lbl">① SCAN AN OPERATIVE CARD</div>
-    <div class="test-kid-grid" id="test-kid-grid"></div>
-
-    <div id="test-activity-section" style="display:none">
-      <div class="test-section-lbl">② CURRENT OPERATIVE</div>
-      <div class="test-who" id="test-who-row">
-        <div class="test-who-name" id="test-who-name">—</div>
-        <button class="test-btn" onclick="testClearKid()" style="font-size:.55rem;padding:4px 8px">CHANGE</button>
-      </div>
-      <div class="test-section-lbl">③ SCAN AN ACTIVITY STATION</div>
-      <div class="test-act-grid" id="test-act-grid"></div>
-    </div>
-  </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
 // ── Squirrel logo ──
-const SQ = 'images/squirrel agent.jpeg';
+const SQ = 'images/squirrel%20agent.jpeg';
 ['hdr-logo','login-logo','admin-logo'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.src = SQ;
@@ -1434,6 +1270,146 @@ function checkUrlParams() {
 checkUrlParams();
 startCamera();
 renderScannerBadge();
+
+// ══════════════════════════════════════════
+//  MOBILE TABS
+// ══════════════════════════════════════════
+let logCount = 0;
+
+function mobTab(tab) {
+  // Only applies on mobile (tabs hidden on desktop via CSS)
+  const cols = { scanner: 'col-scanner', feed: 'col-feed', log: 'col-log' };
+  const tabs = { scanner: 'tab-scanner', feed: 'tab-feed', log: 'tab-log' };
+  Object.values(cols).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('mob-active');
+  });
+  Object.values(tabs).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  const col = document.getElementById(cols[tab]);
+  const tabEl = document.getElementById(tabs[tab]);
+  if (col) col.classList.add('mob-active');
+  if (tabEl) tabEl.classList.add('active');
+  // Clear badge when viewing that tab
+  if (tab === 'feed') clearBadge('tab-feed-badge');
+  if (tab === 'log')  clearBadge('tab-log-badge');
+  // Restart camera if switching back to scanner
+  if (tab === 'scanner' && !scanning) resetScanner();
+}
+
+function bumpBadge(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  // Check if mobile tab bar is visible
+  const tabs = document.getElementById('mob-tabs');
+  if (!tabs || getComputedStyle(tabs).display === 'none') return;
+  // Only bump if not currently viewing that tab
+  const tabMap = { 'tab-feed-badge': 'col-feed', 'tab-log-badge': 'col-log' };
+  const col = document.getElementById(tabMap[id]);
+  if (col && col.classList.contains('mob-active')) return;
+  const cur = parseInt(el.textContent) || 0;
+  el.textContent = cur + 1;
+  el.classList.add('show');
+}
+
+function clearBadge(id) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = '0'; el.classList.remove('show'); }
+}
+
+// When operative identified or mission complete, auto-switch to live feed on mobile
+function mobAutoFeed() {
+  const tabs = document.getElementById('mob-tabs');
+  if (tabs && getComputedStyle(tabs).display !== 'none') {
+    const feedCol = document.getElementById('col-feed');
+    if (feedCol && !feedCol.classList.contains('mob-active')) {
+      bumpBadge('tab-feed-badge');
+    }
+  }
+}
+// ══════════════════════════════════════════
+//  TEST MODE
+// ══════════════════════════════════════════
+wire('test-mode-btn', openTestModal);
+wire('test-close-btn', () => document.getElementById('test-modal').classList.remove('active'));
+
+function openTestModal() {
+  renderTestModal();
+  document.getElementById('test-modal').classList.add('active');
+}
+
+function renderTestModal() {
+  // Kid grid
+  const kidGrid = document.getElementById('test-kid-grid');
+  if (!state.kids.length) {
+    kidGrid.innerHTML = '<div style="font-size:.65rem;color:var(--dim);padding:10px;border:1px dashed var(--border);text-align:center;letter-spacing:.1em">NO OPERATIVES YET — ADD SOME IN ADMIN FIRST</div>';
+  } else {
+    kidGrid.innerHTML = state.kids.map(k => {
+      const done = getProg(k.id).length;
+      const total = state.missions.length;
+      return `<button class="test-kid-btn" onclick="testScanKid('${k.id}')">
+        <span>${k.name}</span>
+        <span class="tkb-prog">${done}/${total} MISSIONS ${done === total ? '🏆' : ''}</span>
+      </button>`;
+    }).join('');
+  }
+
+  // Activity section — show if a kid is already locked in
+  const actSection = document.getElementById('test-activity-section');
+  if (curKid) {
+    const kid = getKid(curKid);
+    document.getElementById('test-who-name').textContent = kid ? kid.name : '—';
+    actSection.style.display = 'block';
+    renderTestActivities();
+  } else {
+    actSection.style.display = 'none';
+  }
+}
+
+function renderTestActivities() {
+  const done = curKid ? getProg(curKid) : [];
+  document.getElementById('test-act-grid').innerHTML = state.missions.map(m => `
+    <button class="test-act-btn ${done.includes(m.id) ? 'done' : ''}"
+      onclick="testScanActivity(${m.id})">
+      <span class="tan">${m.id}</span>
+      ${m.name}
+      ${done.includes(m.id) ? '<br>✓' : ''}
+    </button>`).join('');
+}
+
+function testScanKid(kidId) {
+  const kid = getKid(kidId); if (!kid) return;
+  // Simulate the QR scan
+  const url = makeQRUrl({ kid: kidId });
+  handleQR(url);
+  // Update modal to show activity section
+  document.getElementById('test-who-name').textContent = kid.name;
+  document.getElementById('test-activity-section').style.display = 'block';
+  // Refresh kid list to show updated selection
+  renderTestModal();
+  toast('TEST: SCANNED ' + kid.name);
+}
+
+function testScanActivity(missionId) {
+  if (!curKid) { toast('SCAN AN OPERATIVE FIRST', 'warn'); return; }
+  const done = getProg(curKid);
+  if (done.includes(missionId)) {
+    toast('MISSION ' + missionId + ' ALREADY COMPLETE', 'warn');
+    return;
+  }
+  const url = makeQRUrl({ activity: missionId });
+  handleQR(url);
+  // Small delay then refresh test modal to show updated ticks
+  setTimeout(() => renderTestActivities(), 300);
+}
+
+function testClearKid() {
+  curKid = null;
+  renderScannerBadge();
+  renderTestModal();
+}
 
 // Expose functions needed by inline HTML event handlers
 window.mobTab = mobTab;
