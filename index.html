@@ -582,7 +582,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
       </div>
 
       <div class="card">
-        <div class="flabel">SELECT OPERATIVE</div>
+        <label class="flabel" for="qr-kid-select">SELECT OPERATIVE</label>
         <div class="card-row">
           <select id="qr-kid-select" style="flex:1"></select>
           <button class="btn btn-sm" id="gen-qr-btn">GENERATE</button>
@@ -619,7 +619,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
         <div class="section-desc">USE BEFORE THE EVENT</div>
       </div>
       <div class="card">
-        <div class="flabel">SELECT OPERATIVE TO RESET</div>
+        <label class="flabel" for="reset-kid-select">SELECT OPERATIVE TO RESET</label>
         <div class="card-row">
           <select id="reset-kid-select" style="flex:1"></select>
           <button class="btn btn-sm btn-danger" id="reset-btn">RESET</button>
@@ -707,11 +707,8 @@ function wire(id, fn) {
 }
 
 // ══════════════════════════════════════════
-// ══════════════════════════════════════════
 
 
-
-async
 
 // ══════════════════════════════════════════
 //  DATA
