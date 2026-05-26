@@ -475,7 +475,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <span class="hdr-title">CHERHILL SPY ACADEMY</span>
     <span class="hdr-sub">OPERATIVE COMMAND</span>
     <div class="hdr-spacer"></div>
-    <div id="sync-status-pill" style="display:none;align-items:center;gap:5px;font-size:.6rem;letter-spacing:.12em;color:var(--dim);border:1px solid var(--border);padding:3px 8px;margin-right:6px">
+    <div id="sync-status-pill" style="display:flex;align-items:center;gap:5px;font-size:.6rem;letter-spacing:.12em;color:var(--dim);border:1px solid var(--border);padding:3px 8px;margin-right:6px">
       <div id="sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--dim);transition:all .3s"></div>
       <span id="sync-label">OFFLINE</span>
     </div>
@@ -1191,6 +1191,7 @@ function renderScannerBadge() {
   scroll.innerHTML = `
     <div class="op-card">
       <div class="op-card-name">${kid.name}</div>
+      ${kid.team  ? `<div class="op-card-field"><span class="op-card-lbl">TEAM</span> ${kid.team}</div>` : ''}
       ${kid.aka   ? `<div class="op-card-field"><span class="op-card-lbl">AKA</span> ${kid.aka}</div>` : ''}
       ${kid.skill ? `<div class="op-card-field"><span class="op-card-lbl">SPECIAL SKILL</span> ${kid.skill}</div>` : ''}
       <div class="op-card-meta" style="margin-top:6px">MISSIONS COMPLETE: ${done.length} / ${state.missions.length}</div>
@@ -1637,6 +1638,8 @@ if (syncToken) {
     if (ok) { setSyncDot('ok', 'SYNCED'); startSyncPoll(); renderScannerBadge(); }
     else { setSyncUI(false); setSyncDot('err', 'ERROR'); }
   });
+} else {
+  setSyncDot('off', 'OFFLINE');
 }
 checkUrlParams();
 startCamera();
@@ -1661,10 +1664,9 @@ function saveSyncConfig() {
   else localStorage.removeItem(SYNC_KEY);
 }
 function setSyncUI(connected) {
-  const pill = document.getElementById('sync-status-pill');
+  // Pill always visible — just update admin panel state
   const disc = document.getElementById('sync-disconnected');
   const conn = document.getElementById('sync-connected');
-  if (pill) pill.style.display = connected ? 'flex' : 'none';
   if (disc) disc.style.display = connected ? 'none' : 'block';
   if (conn) conn.style.display = connected ? 'block' : 'none';
 }
@@ -1672,9 +1674,10 @@ function setSyncDot(status, text) {
   const dot = document.getElementById('sync-dot');
   const lbl = document.getElementById('sync-label');
   const stxt = document.getElementById('sync-status-txt');
-  const c = {ok:'#00ff41', syncing:'#ffb300', err:'#ff003c'}[status] || '#00b32c';
-  if (dot) { dot.style.background = c; dot.style.boxShadow = '0 0 6px ' + c; }
-  if (lbl) lbl.textContent = text;
+  const colours = {ok:'#00ff41', syncing:'#ffb300', err:'#ff003c', off:'#555'};
+  const c = colours[status] || colours.off;
+  if (dot) { dot.style.background = c; dot.style.boxShadow = status !== 'off' ? '0 0 6px ' + c : 'none'; }
+  if (lbl) { lbl.textContent = text; lbl.style.color = c; }
   if (stxt) stxt.textContent = text;
 }
 async function syncFetch() {
