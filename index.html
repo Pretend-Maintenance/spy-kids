@@ -1496,6 +1496,7 @@ function checkUrlParams() {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
+unlockAudio();
 loadSyncConfig();
 if (syncToken) {
   setSyncUI(true); setSyncDot('syncing', 'CONNECTING...');
@@ -1823,12 +1824,37 @@ window.manualActivity = manualActivity;
 //  SOUND ENGINE (Web Audio API — no files)
 // ══════════════════════════════════════════
 let audioCtx = null;
+let audioUnlocked = false;
 
 function getAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // Resume if suspended (browser autoplay policy)
-  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
+}
+
+// Called on any user gesture to unlock audio for the session
+function unlockAudio() {
+  if (audioUnlocked) return;
+  try {
+    const ctx = getAudio();
+    // Play a silent buffer to unlock
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    ctx.resume().then(() => { audioUnlocked = true; });
+  } catch(e) {}
+}
+
+// Play a sound — resumes context if needed, waits if still locked
+async function playSound(fn) {
+  try {
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    fn(ctx);
+  } catch(e) {}
 }
 
 // Short beep utility
@@ -1848,52 +1874,47 @@ function beep(freq, type, duration, volume, startTime, ctx) {
 // ── Operative identified: longer spy-agency login sequence ──
 // Slow sweep up then a confident held tone — like clearance being granted
 function playLoginSound() {
-  try {
-    const ctx = getAudio();
+  playSound(ctx => {
     const now = ctx.currentTime;
-    // Opening beeps — processing feel
     beep(330,  'sine', 0.08, 0.18, now,        ctx);
     beep(370,  'sine', 0.08, 0.18, now + 0.10, ctx);
     beep(415,  'sine', 0.08, 0.18, now + 0.20, ctx);
     beep(494,  'sine', 0.10, 0.20, now + 0.30, ctx);
-    // Pause then ascending confirmation chord
-    beep(440,  'sine', 0.15, 0.28, now + 0.50, ctx); // A4
-    beep(554,  'sine', 0.15, 0.28, now + 0.65, ctx); // C#5
-    beep(659,  'sine', 0.15, 0.28, now + 0.80, ctx); // E5
-    // Final held clearance tone
-    beep(880,  'sine', 0.55, 0.40, now + 1.00, ctx); // A5 — long hold
-    beep(659,  'sine', 0.35, 0.50, now + 1.02, ctx); // E5 harmony under it
-  } catch(e) {}
+    beep(440,  'sine', 0.15, 0.28, now + 0.50, ctx);
+    beep(554,  'sine', 0.15, 0.28, now + 0.65, ctx);
+    beep(659,  'sine', 0.15, 0.28, now + 0.80, ctx);
+    beep(880,  'sine', 0.55, 0.40, now + 1.00, ctx);
+    beep(659,  'sine', 0.35, 0.50, now + 1.02, ctx);
+  });
 }
 
 // ── Activity complete: triumphant ascending fanfare ──
 function playCompleteSound() {
-  try {
-    const ctx = getAudio();
+  playSound(ctx => {
     const now = ctx.currentTime;
-    beep(523,  'square', 0.10, 0.25, now,        ctx); // C5
-    beep(659,  'square', 0.10, 0.25, now + 0.11, ctx); // E5
-    beep(784,  'square', 0.10, 0.25, now + 0.22, ctx); // G5
-    beep(1047, 'square', 0.22, 0.35, now + 0.33, ctx); // C6 - held
-    beep(659,  'sine',   0.10, 0.20, now + 0.33, ctx); // E5 harmony
-    beep(784,  'sine',   0.08, 0.18, now + 0.36, ctx); // G5 harmony
-  } catch(e) {}
+    beep(523,  'square', 0.10, 0.25, now,        ctx);
+    beep(659,  'square', 0.10, 0.25, now + 0.11, ctx);
+    beep(784,  'square', 0.10, 0.25, now + 0.22, ctx);
+    beep(1047, 'square', 0.22, 0.35, now + 0.33, ctx);
+    beep(659,  'sine',   0.10, 0.20, now + 0.33, ctx);
+    beep(784,  'sine',   0.08, 0.18, now + 0.36, ctx);
+  });
 }
 
 // ── Activity already scanned: low double-buzz rejection tone ──
 // Firm but not harsh — tells the kid it's already done
 function playAlreadyDoneSound() {
-  try {
-    const ctx = getAudio();
+  playSound(ctx => {
     const now = ctx.currentTime;
-    beep(220, 'sawtooth', 0.18, 0.35, now,        ctx); // low buzz
-    beep(196, 'sawtooth', 0.18, 0.30, now + 0.22, ctx); // slightly lower second buzz
-  } catch(e) {}
+    beep(220, 'sawtooth', 0.18, 0.35, now,        ctx);
+    beep(196, 'sawtooth', 0.18, 0.30, now + 0.22, ctx);
+  });
 }
 
-// Unlock audio on first user interaction (browser policy)
-document.addEventListener('click', () => { try { getAudio(); } catch(e) {} }, { once: true });
-document.addEventListener('keydown', () => { try { getAudio(); } catch(e) {} }, { once: true });
+// Unlock audio on ANY user interaction (browser autoplay policy)
+['click','touchstart','keydown','mousedown'].forEach(evt => {
+  document.addEventListener(evt, unlockAudio, { once: false, passive: true });
+});
 // ══════════════════════════════════════════
 //  MOBILE TABS
 // ══════════════════════════════════════════
