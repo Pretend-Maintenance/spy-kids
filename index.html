@@ -1689,8 +1689,7 @@ if (syncToken) {
       syncSha = d.sha; // get the SHA so pushes don't conflict
       if (syncMode === 'master') {
         // Master: load remote state
-        const remote = JSON.parse(atob(d.content.replace(/
-/g, '')));
+        const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
         state = remote; saveLocal();
       }
       // Viewer: keep local state, just note the SHA
