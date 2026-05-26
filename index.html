@@ -1373,9 +1373,33 @@ function removeKid(id) {
   saveState(); renderAdmin(); if (curKid === id) { curKid = null; renderScannerBadge(); } toast('REMOVED');
 }
 function editKid(id) {
-  const kid = getKid(id); const name = prompt('NEW NAME:', kid.name);
-  if (!name || !name.trim()) return;
-  kid.name = name.trim().toUpperCase(); saveState(); renderAdmin(); toast('RENAMED');
+  const kid = getKid(id);
+  if (!kid) return;
+  document.getElementById('edit-op-id').value       = id;
+  document.getElementById('edit-op-codename').value  = kid.name  || '';
+  document.getElementById('edit-op-aka').value        = kid.aka   || '';
+  document.getElementById('edit-op-skill').value      = kid.skill || '';
+  document.getElementById('edit-op-team').value       = kid.team  || '';
+  document.getElementById('edit-operative-modal').classList.add('active');
+  setTimeout(() => document.getElementById('edit-op-codename').focus(), 80);
+}
+
+function saveEditKid() {
+  const id    = document.getElementById('edit-op-id').value;
+  const name  = document.getElementById('edit-op-codename').value.trim().toUpperCase();
+  const aka   = document.getElementById('edit-op-aka').value.trim();
+  const skill = document.getElementById('edit-op-skill').value.trim();
+  const team  = document.getElementById('edit-op-team').value.trim().toUpperCase();
+  if (!name) { toast('CODENAME REQUIRED', 'warn'); return; }
+  const conflict = state.kids.find(k => k.name === name && k.id !== id);
+  if (conflict) { toast('CODENAME ALREADY TAKEN', 'warn'); return; }
+  const kid = getKid(id);
+  if (!kid) return;
+  kid.name = name; kid.aka = aka; kid.skill = skill; kid.team = team;
+  saveState();
+  document.getElementById('edit-operative-modal').classList.remove('active');
+  renderAdmin(); renderScannerBadge();
+  toast('OPERATIVE UPDATED');
 }
 
 wire('reset-btn', () => {
@@ -1855,6 +1879,7 @@ function saveRecovery() {
 }
 window.openRecoveryModal = openRecoveryModal;
 window.openActivityModal = openActivityModal;
+window.saveEditKid = saveEditKid;
 
 // ══════════════════════════════════════════
 //  ACTIVITY TEAM SELECT
@@ -2213,6 +2238,10 @@ wire('export-btn', exportOperatives);
 document.getElementById('import-file') && document.getElementById('import-file').addEventListener('change', e => {
   importOperatives(e.target.files[0]);
 });
+wire('edit-op-save-btn', saveEditKid);
+wire('edit-op-close-btn',  () => document.getElementById('edit-operative-modal').classList.remove('active'));
+wire('edit-op-cancel-btn', () => document.getElementById('edit-operative-modal').classList.remove('active'));
+document.getElementById('edit-op-codename').addEventListener('keydown', e => { if (e.key === 'Enter') saveEditKid(); });
 wire('activity-modal-close', () => document.getElementById('activity-modal').classList.remove('active'));
 wire('activity-confirm-btn', confirmActivity);
 wire('activity-cancel-btn', () => document.getElementById('activity-modal').classList.remove('active'));
