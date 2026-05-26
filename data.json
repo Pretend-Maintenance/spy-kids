@@ -90,5 +90,7 @@
       "name": "EXFILTRATION"
     }
   ],
-  "teams": []
+  "teams": [
+    "MISSION CONTROL"
+  ]
 }
