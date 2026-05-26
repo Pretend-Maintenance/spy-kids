@@ -90,10 +90,5 @@
       "name": "EXFILTRATION"
     }
   ],
-  "teams": [
-    "TEAM ALPHA",
-    "TEAM BRAVO",
-    "TEAM CHARLIE",
-    "TEAM DELTA"
-  ]
+  "teams": []
 }
