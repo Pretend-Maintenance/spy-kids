@@ -801,9 +801,22 @@ input::placeholder{color:rgba(0,255,65,.2);}
           <label class="flabel" for="sync-token-input">GITHUB TOKEN</label>
           <div style="display:flex;gap:6px;margin-top:4px">
             <input type="password" id="sync-token-input" name="sync-token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" style="flex:1">
-            <button class="btn btn-sm btn-amber" id="sync-connect-btn" style="white-space:nowrap">CONNECT</button>
           </div>
-          <div style="font-size:.58rem;color:var(--dim);margin-top:6px;letter-spacing:.08em">Saved on this device only.</div>
+          <div style="margin:10px 0 6px">
+            <label class="flabel">DEVICE ROLE</label>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9rem;letter-spacing:.1em;padding:8px 12px;border:1px solid var(--border);flex:1" id="role-master-lbl">
+                <input type="radio" name="sync-role" id="role-master" value="master" style="accent-color:var(--green);width:16px;height:16px">
+                💻 MASTER <span style="font-size:0.75rem;color:var(--dim);display:block;margin-top:2px">Laptop — saves &amp; controls data</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9rem;letter-spacing:.1em;padding:8px 12px;border:1px solid var(--border);flex:1" id="role-viewer-lbl">
+                <input type="radio" name="sync-role" id="role-viewer" value="viewer" checked style="accent-color:var(--green);width:16px;height:16px">
+                📱 VIEWER <span style="font-size:0.75rem;color:var(--dim);display:block;margin-top:2px">Tablet — reads only, auto-updates</span>
+              </label>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-amber" id="sync-connect-btn" style="white-space:nowrap">CONNECT</button>
+          <div style="font-size:0.75rem;color:var(--dim);margin-top:6px;letter-spacing:.08em">Token saved on this device only.</div>
         </div>
         <div id="sync-connected" style="display:none">
           <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(0,255,65,.07);border:1px solid var(--green)">
@@ -958,6 +971,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── All vars declared first to avoid TDZ errors ──
 let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
+let syncMode = 'viewer';
 let audioCtx = null, audioUnlocked = false;
 let pendingActivityId = null, selectedAgents = new Set();
 
@@ -1331,6 +1345,11 @@ function renderAdmin() {
   renderKidList(); renderMissionConfig(); renderSelects(); renderAQRs(); updateOperativeDatalist(); renderTeamsList(); updateTeamDatalist();
   const inp = document.getElementById('sync-token-input');
   if (inp && syncToken) inp.value = syncToken;
+  // Restore role radio selection
+  if (syncToken) {
+    const roleEl = document.getElementById('role-' + syncMode);
+    if (roleEl) roleEl.checked = true;
+  }
   setSyncUI(!!syncToken);
 }
 
@@ -1656,12 +1675,17 @@ const SYNC_KEY  = 'cherhill_sync_token';
 const SYNC_REPO = 'Pretend-Maintenance/spy-kids';
 // syncToken vars declared at top of script
 
+const SYNC_MODE_KEY = 'cherhill_sync_mode';
+
 function loadSyncConfig() {
-  try { syncToken = localStorage.getItem(SYNC_KEY) || null; } catch { syncToken = null; }
+  try {
+    syncToken = localStorage.getItem(SYNC_KEY) || null;
+    syncMode  = localStorage.getItem(SYNC_MODE_KEY) || 'viewer';
+  } catch { syncToken = null; syncMode = 'viewer'; }
 }
 function saveSyncConfig() {
-  if (syncToken) localStorage.setItem(SYNC_KEY, syncToken);
-  else localStorage.removeItem(SYNC_KEY);
+  if (syncToken) { localStorage.setItem(SYNC_KEY, syncToken); localStorage.setItem(SYNC_MODE_KEY, syncMode); }
+  else { localStorage.removeItem(SYNC_KEY); localStorage.removeItem(SYNC_MODE_KEY); }
 }
 function setSyncUI(connected) {
   // Pill always visible — just update admin panel state
@@ -1691,7 +1715,9 @@ async function syncFetch() {
     const d = await r.json();
     syncSha = d.sha;
     const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
-    if (JSON.stringify(remote) !== JSON.stringify(state)) {
+    // Master: only update if remote differs
+    // Viewer: always accept remote as truth
+    if (syncMode === 'viewer' || JSON.stringify(remote) !== JSON.stringify(state)) {
       state = remote; saveLocal();
       renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
       const p = document.querySelector('.page.active');
@@ -1702,6 +1728,7 @@ async function syncFetch() {
 }
 async function syncPush(isNew) {
   if (!syncToken) return;
+  if (syncMode !== 'master') return; // viewers never write
   setSyncDot('syncing', 'SAVING...');
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
@@ -1731,22 +1758,27 @@ function schedulePush() {
 }
 function startSyncPoll() {
   clearInterval(syncPollTimer);
+  const pollInterval = syncMode === 'viewer' ? 5000 : 10000;
   syncPollTimer = setInterval(async () => {
     setSyncDot('syncing', 'CHECKING...');
     const ok = await syncFetch();
-    setSyncDot(ok ? 'ok' : 'err', ok ? 'SYNCED' : 'SYNC ERROR');
-  }, 10000);
+    setSyncDot(ok ? 'ok' : 'err', ok ? (syncMode === 'master' ? 'MASTER' : 'SYNCED') : 'SYNC ERROR');
+  }, pollInterval);
 }
 async function connectSync() {
   const inp = document.getElementById('sync-token-input');
   const token = inp ? inp.value.trim() : '';
   if (!token) { toast('ENTER YOUR GITHUB TOKEN', 'warn'); return; }
+  const roleEl = document.querySelector('input[name="sync-role"]:checked');
+  syncMode  = roleEl ? roleEl.value : 'viewer';
   syncToken = token;
   setSyncDot('syncing', 'CONNECTING...');
   const ok = await syncFetch();
   if (ok) {
-    saveSyncConfig(); setSyncUI(true); setSyncDot('ok', 'SYNCED'); startSyncPoll();
-    toast('SYNC CONNECTED');
+    saveSyncConfig(); setSyncUI(true);
+    const modeLabel = syncMode === 'master' ? 'MASTER' : 'SYNCED';
+    setSyncDot('ok', modeLabel); startSyncPoll();
+    toast('SYNC CONNECTED AS ' + syncMode.toUpperCase());
   } else {
     syncToken = null; setSyncDot('err', 'FAILED');
     toast('FAILED — CHECK TOKEN', 'error');
