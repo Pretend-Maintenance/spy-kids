@@ -149,8 +149,34 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
   /* Tab bar logo */
   .mob-tab-icon img{height:22px;}
 
-  /* Admin page on mobile needs padding for tab bar */
+  /* Admin page on mobile */
   #page-admin-login{height:100dvh;}
+
+  /* Scanner column on mobile - stack camera + manual lookup */
+  #col-scanner .col-body{
+    flex-direction:column;
+    overflow-y:auto;
+  }
+  /* Camera takes up most of available space */
+  #cam-wrap{
+    flex:1;
+    min-height:200px;
+    max-height:55vh;
+  }
+  /* Manual lookup fully visible below camera */
+  #manual-lookup{
+    flex-shrink:0;
+  }
+  /* FAB sits just above the status bar */
+  .fab{
+    bottom:44px;
+    font-size:.65rem;
+    padding:7px 18px;
+  }
+  /* Make manual activity grid 2-col on mobile */
+  .manual-act-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
 }
 
 
@@ -1248,7 +1274,7 @@ function renderKidList() {
     const total = state.missions.length;
     const allDone = done === total;
     return `<div class="op-item">
-      <div class="op-item-icon">${allDone ? '🏆' : '🐿️'}</div>
+      <div class="op-item-icon">${allDone ? '🏆' : '<img src="images/squirrel_logo.png" style="height:20px;filter:drop-shadow(0 0 3px var(--green));">'}</div>
       <div class="op-item-name">${k.name}</div>
       <div class="op-item-prog">${done}/${total} MISSIONS</div>
       <div class="op-item-btns">
