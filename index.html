@@ -454,6 +454,15 @@ input::placeholder{color:rgba(0,255,65,.2);}
 .manual-act-btn:hover{border-color:var(--green);background:rgba(0,255,65,.1);}
 .manual-act-btn.done{border-color:var(--dim);color:var(--dim);opacity:.45;}
 .manual-act-num{font-family:'Orbitron',monospace;font-size:1.12rem;display:block;}
+
+/* ── ACTIVITY AGENT SELECT ── */
+.agent-select-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);background:var(--panel);cursor:pointer;transition:all .2s;user-select:none;}
+.agent-select-row:hover{border-color:var(--green);background:rgba(0,255,65,.08);}
+.agent-select-row.selected{border-color:var(--green);background:rgba(0,255,65,.12);box-shadow:0 0 6px rgba(0,255,65,.2);}
+.agent-check{width:18px;height:18px;border:1px solid var(--dim);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;transition:all .2s;}
+.agent-select-row.selected .agent-check{border-color:var(--green);color:var(--green);}
+.agent-name{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:700;flex:1;}
+.agent-meta{font-size:0.75rem;color:var(--dim);}
 </style>
 </head>
 <body>
@@ -1131,15 +1140,10 @@ function handleQR(data) {
   if (actN) {
     const n = parseInt(actN);
     if (n < 1 || n > state.missions.length) { toast('UNKNOWN ACTIVITY', 'error'); return; }
-    if (!curKid) { toast('SCAN OPERATIVE CARD FIRST', 'warn'); return; }
-    const done = getProg(curKid);
-    if (done.includes(n)) { toast('MISSION ' + n + ' ALREADY DONE', 'warn'); playAlreadyDoneSound(); return; }
-    const kid = getKid(curKid);
-    const m   = state.missions.find(x => x.id === n);
-    markDone(curKid, n); renderScannerBadge();
-    addLog(kid ? kid.name : '?', 'COMPLETED MISSION ' + n + ': ' + (m ? m.name : ''));
-    playCompleteSound();
-    openVideo(n); return;
+    // Open team selection modal — pre-select current operative if one is locked in
+    if (curKid) selectedAgents.add(curKid);
+    openActivityModal(n);
+    return;
   }
   toast('UNRECOGNISED QR', 'error');
 }
@@ -1826,7 +1830,8 @@ function saveRecovery() {
   if (existing) { toast('CODENAME ALREADY TAKEN', 'warn'); return; }
 
   // Register with the exact same ID as the printed QR card
-  const kid = { id: kidId, name, aka, skill };
+  const team = (document.getElementById('recovery-team')||{value:''}).value.trim().toUpperCase();
+  const kid = { id: kidId, name, aka, skill, team };
   state.kids.push(kid);
   saveState();
 
@@ -1842,6 +1847,78 @@ function saveRecovery() {
   updateOperativeDatalist();
 }
 window.openRecoveryModal = openRecoveryModal;
+window.openActivityModal = openActivityModal;
+
+// ══════════════════════════════════════════
+//  ACTIVITY TEAM SELECT
+// ══════════════════════════════════════════
+let pendingActivityId = null;
+let selectedAgents    = new Set();
+
+function openActivityModal(missionId) {
+  pendingActivityId = missionId;
+  selectedAgents.clear();
+  const m = state.missions.find(x => x.id === missionId);
+  document.getElementById('activity-modal-title').textContent = '🎯 MISSION ' + missionId + ': ' + (m ? m.name : '');
+  renderAgentList();
+  document.getElementById('activity-modal').classList.add('active');
+}
+
+function renderAgentList() {
+  const list = document.getElementById('activity-agent-list');
+  if (!state.kids.length) {
+    list.innerHTML = '<div style="color:var(--dim);font-size:0.9rem;padding:10px">NO OPERATIVES REGISTERED</div>';
+    return;
+  }
+  list.innerHTML = state.kids.map(k => {
+    const alreadyDone = getProg(k.id).includes(pendingActivityId);
+    const sel = selectedAgents.has(k.id);
+    return `<div class="agent-select-row ${sel ? 'selected' : ''} ${alreadyDone ? '' : ''}"
+      onclick="toggleAgent('${k.id}', ${alreadyDone})">
+      <div class="agent-check">${sel ? '✓' : ''}</div>
+      <div>
+        <div class="agent-name">${k.name} ${alreadyDone ? '<span style="font-size:0.7rem;color:var(--dim)">(DONE)</span>' : ''}</div>
+        <div class="agent-meta">${[k.team, k.aka].filter(Boolean).join(' — ')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleAgent(kidId, alreadyDone) {
+  if (selectedAgents.has(kidId)) selectedAgents.delete(kidId);
+  else selectedAgents.add(kidId);
+  renderAgentList();
+}
+window.toggleAgent = toggleAgent;
+
+function confirmActivity() {
+  if (!selectedAgents.size) { toast('SELECT AT LEAST ONE OPERATIVE', 'warn'); return; }
+  document.getElementById('activity-modal').classList.remove('active');
+
+  // Mark progress for all selected agents
+  let names = [];
+  selectedAgents.forEach(kidId => {
+    const kid = getKid(kidId);
+    if (!kid) return;
+    if (!state.progress[kidId]) state.progress[kidId] = [];
+    if (!state.progress[kidId].includes(pendingActivityId)) {
+      state.progress[kidId].push(pendingActivityId);
+      names.push(kid.name);
+      addLog(kid.name, 'COMPLETED MISSION ' + pendingActivityId + ': ' + (state.missions.find(m=>m.id===pendingActivityId)||{name:''}).name);
+    }
+  });
+  saveState();
+  renderScannerBadge();
+  renderManualActGrid();
+  if (names.length) {
+    playCompleteSound();
+    openVideo(pendingActivityId);
+  } else {
+    toast('ALL SELECTED ALREADY DONE', 'warn');
+    playAlreadyDoneSound();
+  }
+}
+window.confirmActivity = confirmActivity;
 // ══════════════════════════════════════════
 //  MANUAL LOOKUP
 // ══════════════════════════════════════════
@@ -1880,16 +1957,10 @@ function manualLookup() {
 }
 
 function manualActivity(missionId) {
-  if (!curKid) { toast('SELECT AN OPERATIVE FIRST', 'warn'); return; }
-  // Check if already done before passing to handleQR
-  if (getProg(curKid).includes(missionId)) {
-    toast('MISSION ' + missionId + ' ALREADY DONE', 'warn');
-    playAlreadyDoneSound();
-    return;
-  }
-  const url = makeQRUrl({ activity: missionId });
-  handleQR(url);
-  setTimeout(renderManualActGrid, 300);
+  // Open team selection modal — pre-select current operative if locked in
+  selectedAgents.clear();
+  if (curKid) selectedAgents.add(curKid);
+  openActivityModal(missionId);
 }
 window.manualActivity = manualActivity;
 
@@ -2138,6 +2209,9 @@ wire('export-btn', exportOperatives);
 document.getElementById('import-file') && document.getElementById('import-file').addEventListener('change', e => {
   importOperatives(e.target.files[0]);
 });
+wire('activity-modal-close', () => document.getElementById('activity-modal').classList.remove('active'));
+wire('activity-confirm-btn', confirmActivity);
+wire('activity-cancel-btn', () => document.getElementById('activity-modal').classList.remove('active'));
 wire('recovery-save-btn', saveRecovery);
 wire('recovery-close-btn', () => document.getElementById('recovery-modal').classList.remove('active'));
 wire('recovery-cancel-btn', () => document.getElementById('recovery-modal').classList.remove('active'));
@@ -2169,5 +2243,21 @@ window.closeVideo = closeVideo;
 </script>
 
 
+
+<!-- ACTIVITY TEAM SELECT MODAL -->
+<div class="modal-bg" id="activity-modal">
+  <div class="modal-box" style="max-width:520px">
+    <button class="modal-close" id="activity-modal-close">✕</button>
+    <div class="modal-title" id="activity-modal-title">🎯 MISSION 1: INFILTRATION</div>
+    <p style="font-size:0.9rem;color:var(--dim);margin-bottom:14px;line-height:1.7;letter-spacing:.07em">
+      Select all operatives who completed this mission:
+    </p>
+    <div id="activity-agent-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="activity-confirm-btn">✓ CONFIRM &amp; PLAY VIDEO</button>
+      <button class="btn btn-danger" id="activity-cancel-btn">CANCEL</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
