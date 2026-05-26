@@ -466,6 +466,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
 </style>
 </head>
 <body>
+<datalist id="team-datalist"></datalist>
 
 <!-- ══ PAGE: DASHBOARD ══ -->
 <div class="page active" id="page-scanner">
@@ -624,7 +625,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
           </div>
           <div style="flex:1">
             <label class="flabel" for="new-kid-team">TEAM</label>
-            <input type="text" id="new-kid-team" name="new-kid-team" placeholder="E.G. TEAM ALPHA" maxlength="30" autocomplete="off">
+            <input type="text" id="new-kid-team" name="new-kid-team" placeholder="E.G. TEAM ALPHA" maxlength="30" autocomplete="off" list="team-datalist">
           </div>
         </div>
         <button class="btn btn-sm" id="add-kid-btn" style="align-self:flex-start">+ ADD OPERATIVE</button>
@@ -743,6 +744,25 @@ input::placeholder{color:rgba(0,255,65,.2);}
           </label>
         </div>
         <div id="import-status" style="font-size:.62rem;margin-top:8px;min-height:18px;letter-spacing:.1em"></div>
+      </div>
+    </div>
+
+    <div class="admin-divider"></div>
+
+    <!-- ══ SECTION: TEAMS ══ -->
+    <div class="admin-section">
+      <div class="section-hdr">
+        <div class="section-icon">👥</div>
+        <div class="section-title">TEAMS</div>
+        <div class="section-desc">MANAGE TEAM NAMES</div>
+      </div>
+      <div class="card">
+        <p style="font-size:0.9rem;color:var(--dim);margin-bottom:12px;line-height:1.7;letter-spacing:.07em">Edit team names below. These appear as options when assigning operatives.</p>
+        <div id="teams-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="new-team-input" name="new-team" placeholder="NEW TEAM NAME" maxlength="30" autocomplete="off" style="flex:1">
+          <button class="btn btn-sm" id="add-team-btn" style="white-space:nowrap">+ ADD TEAM</button>
+        </div>
       </div>
     </div>
 
@@ -919,6 +939,11 @@ input::placeholder{color:rgba(0,255,65,.2);}
         <input type="text" id="recovery-skill" name="recovery-skill" 
           placeholder="E.G. RELENTLESS" maxlength="50" autocomplete="off">
       </div>
+      <div class="field" style="flex:1">
+        <label for="recovery-team">TEAM</label>
+        <input type="text" id="recovery-team" name="recovery-team" 
+          placeholder="E.G. TEAM ALPHA" maxlength="30" autocomplete="off">
+      </div>
     </div>
     <div style="font-size:.58rem;color:var(--dim);margin-bottom:12px;letter-spacing:.1em" id="recovery-id-display"></div>
     <div style="display:flex;gap:8px">
@@ -962,7 +987,7 @@ const DEF = [
   {id:4,name:'SURVEILLANCE'},{id:5,name:'SABOTAGE'},{id:6,name:'EXFILTRATION'}
 ];
 function loadState() { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : fresh(); } catch { return fresh(); } }
-function fresh() { return { password: 'spy123', kids: [], progress: {}, missions: DEF.map(m => ({...m})) }; }
+function fresh() { return { password: 'spy123', kids: [], progress: {}, missions: DEF.map(m => ({...m})), teams: ['TEAM ALPHA','TEAM BRAVO','TEAM CHARLIE','TEAM DELTA'] }; }
 function saveLocal() { localStorage.setItem(SK, JSON.stringify(state)); }
 function saveState() { saveLocal(); if (syncToken) schedulePush(); }
 
@@ -1302,7 +1327,7 @@ wire('confirm-quickadd-btn', () => {
 //  ADMIN
 // ══════════════════════════════════════════
 function renderAdmin() {
-  renderKidList(); renderMissionConfig(); renderSelects(); renderAQRs(); updateOperativeDatalist();
+  renderKidList(); renderMissionConfig(); renderSelects(); renderAQRs(); updateOperativeDatalist(); renderTeamsList(); updateTeamDatalist();
   const inp = document.getElementById('sync-token-input');
   if (inp && syncToken) inp.value = syncToken;
   setSyncUI(!!syncToken);
@@ -1732,6 +1757,45 @@ function disconnectSync() {
   const pill = document.getElementById('sync-status-pill');
   if (pill) pill.style.display = 'none';
   toast('DISCONNECTED', 'warn');
+}
+
+// ══════════════════════════════════════════
+//  TEAM MANAGEMENT
+// ══════════════════════════════════════════
+function renderTeamsList() {
+  if (!state.teams) state.teams = ['TEAM ALPHA','TEAM BRAVO','TEAM CHARLIE','TEAM DELTA'];
+  const list = document.getElementById('teams-list');
+  if (!list) return;
+  list.innerHTML = state.teams.map((t, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border:1px solid var(--border)">
+      <input type="text" value="${t}" maxlength="30" autocomplete="off"
+        oninput="updateTeamName(${i}, this.value)"
+        style="flex:1;border:none;background:transparent;color:var(--green);font-family:'Share Tech Mono',monospace;font-size:0.9rem;outline:none;">
+      <button class="btn btn-sm btn-danger" onclick="removeTeam(${i})">✕</button>
+    </div>`).join('');
+  updateTeamDatalist();
+}
+
+function updateTeamName(i, val) {
+  if (!state.teams) return;
+  state.teams[i] = val.toUpperCase();
+  saveState();
+  updateTeamDatalist();
+}
+
+function removeTeam(i) {
+  if (!state.teams) return;
+  state.teams.splice(i, 1);
+  saveState();
+  renderTeamsList();
+}
+window.removeTeam = removeTeam;
+window.updateTeamName = updateTeamName;
+
+function updateTeamDatalist() {
+  if (!state.teams) return;
+  const dl = document.getElementById('team-datalist');
+  if (dl) dl.innerHTML = state.teams.map(t => `<option value="${t}">`).join('');
 }
 // ══════════════════════════════════════════
 //  BACKUP & RESTORE
@@ -2234,6 +2298,15 @@ function testClearKid() {
 
 wire('sync-connect-btn', connectSync);
 wire('sync-disconnect-btn', disconnectSync);
+wire('add-team-btn', () => {
+  const inp = document.getElementById('new-team-input');
+  const val = inp.value.trim().toUpperCase();
+  if (!val) { toast('ENTER A TEAM NAME', 'warn'); return; }
+  if (!state.teams) state.teams = [];
+  if (state.teams.includes(val)) { toast('TEAM ALREADY EXISTS', 'warn'); return; }
+  state.teams.push(val); saveState(); inp.value = ''; renderTeamsList(); toast('TEAM ADDED: ' + val);
+});
+document.getElementById('new-team-input').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('add-team-btn').click(); });
 wire('export-btn', exportOperatives);
 document.getElementById('import-file') && document.getElementById('import-file').addEventListener('change', e => {
   importOperatives(e.target.files[0]);
@@ -2292,5 +2365,37 @@ window.closeVideo = closeVideo;
     </div>
   </div>
 </div>
+
+<!-- EDIT OPERATIVE MODAL -->
+<div class="modal-bg" id="edit-operative-modal">
+  <div class="modal-box" style="max-width:480px">
+    <button class="modal-close" id="edit-op-close-btn">✕</button>
+    <div class="modal-title">✎ EDIT OPERATIVE</div>
+    <input type="hidden" id="edit-op-id">
+    <div class="field">
+      <label for="edit-op-codename">AGENT CODENAME *</label>
+      <input type="text" id="edit-op-codename" name="edit-op-codename" maxlength="30" autocomplete="off" placeholder="E.G. MIDNIGHT DAGGER">
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1">
+        <label for="edit-op-aka">AKA (REAL NAME)</label>
+        <input type="text" id="edit-op-aka" name="edit-op-aka" maxlength="40" autocomplete="off" placeholder="E.G. BEN">
+      </div>
+      <div class="field" style="flex:1">
+        <label for="edit-op-team">TEAM</label>
+        <input type="text" id="edit-op-team" name="edit-op-team" maxlength="30" autocomplete="off" placeholder="E.G. TEAM ALPHA" list="team-datalist">
+      </div>
+    </div>
+    <div class="field">
+      <label for="edit-op-skill">SPECIAL SKILL</label>
+      <input type="text" id="edit-op-skill" name="edit-op-skill" maxlength="50" autocomplete="off" placeholder="E.G. BEING RELENTLESS">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="btn btn-amber" id="edit-op-save-btn">✓ SAVE CHANGES</button>
+      <button class="btn btn-danger" id="edit-op-cancel-btn">CANCEL</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
