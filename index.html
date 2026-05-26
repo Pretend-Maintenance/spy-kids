@@ -1364,7 +1364,6 @@ function renderAdmin() {
   if (inp) {
     if (syncToken) {
       inp.value = syncToken;
-      inp.placeholder = 'Token saved ✓';
     }
   }
   // Restore role radio selection
@@ -1726,8 +1725,11 @@ const SYNC_MODE_KEY = 'cherhill_sync_mode';
 
 function loadSyncConfig() {
   try {
-    syncToken = localStorage.getItem(SYNC_KEY) || null;
-    syncMode  = localStorage.getItem(SYNC_MODE_KEY) || 'viewer';
+    syncToken = localStorage.getItem(SYNC_KEY) || sessionStorage.getItem(SYNC_KEY) || null;
+    syncMode  = localStorage.getItem(SYNC_MODE_KEY) || sessionStorage.getItem(SYNC_MODE_KEY) || 'viewer';
+    if (syncToken) {
+      try { localStorage.setItem(SYNC_KEY, syncToken); sessionStorage.setItem(SYNC_KEY, syncToken); } catch(e) {}
+    }
   } catch { syncToken = null; syncMode = 'viewer'; }
 }
 function saveSyncConfig() {
@@ -1857,6 +1859,7 @@ async function connectSync() {
   const roleEl = document.querySelector('input[name="sync-role"]:checked');
   syncMode  = roleEl ? roleEl.value : 'viewer';
   syncToken = token;
+  try { localStorage.setItem('cherhill_sync_token', syncToken); sessionStorage.setItem('cherhill_sync_token', syncToken); localStorage.setItem('cherhill_sync_mode', syncMode); } catch(e) {}
   setSyncDot('syncing', 'CONNECTING...');
   const ok = await syncFetch();
   if (ok) {
