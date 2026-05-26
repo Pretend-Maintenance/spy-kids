@@ -468,6 +468,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
 .agent-select-row.selected .agent-check{border-color:var(--green);color:var(--green);}
 .agent-name{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:700;flex:1;}
 .agent-meta{font-size:0.75rem;color:var(--dim);}
+@media(min-width:769px){.mob-admin-toggle{display:none !important;}}
 </style>
 </head>
 <body>
@@ -1428,7 +1429,10 @@ document.getElementById('new-kid-codename').addEventListener('keydown', e => { i
 function removeKid(id) {
   if (!confirm('REMOVE OPERATIVE?')) return;
   state.kids = state.kids.filter(k => k.id !== id); delete state.progress[id];
-  saveState(); renderAdmin(); if (curKid === id) { curKid = null; renderScannerBadge(); } toast('REMOVED');
+  saveLocal();
+  // Push immediately — don't wait for debounce, prevents sync overwrite
+  if (syncToken) { clearTimeout(syncPushTimer); syncPush(); }
+  renderAdmin(); if (curKid === id) { curKid = null; renderScannerBadge(); } toast('REMOVED');
 }
 function editKid(id) {
   const kid = getKid(id);
@@ -1454,7 +1458,8 @@ function saveEditKid() {
   const kid = getKid(id);
   if (!kid) return;
   kid.name = name; kid.aka = aka; kid.skill = skill; kid.team = team;
-  saveState();
+  saveLocal();
+  if (syncToken) { clearTimeout(syncPushTimer); syncPush(); }
   document.getElementById('edit-operative-modal').classList.remove('active');
   renderAdmin(); renderScannerBadge();
   toast('OPERATIVE UPDATED');
@@ -1728,6 +1733,9 @@ async function syncFetch() {
     const d = await r.json();
     syncSha = d.sha;
     const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
+    // Don't overwrite if we have a pending push (would undo local changes)
+    if (syncPushTimer) return true;
+
     // Master: only update if remote differs
     // Viewer: always accept remote as truth
     if (syncMode === 'viewer' || JSON.stringify(remote) !== JSON.stringify(state)) {
