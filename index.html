@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="apple-touch-icon" href="images/favicon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>CHERHILL SPY ACADEMY — SPY ACADEMY</title>
@@ -243,7 +245,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 /* ── ADMIN LOGIN PAGE ── */
 #page-admin-login{align-items:center;justify-content:center;height:100vh;}
 .login-box{width:100%;max-width:360px;text-align:center;padding:20px;}
-.login-logo{width:80px;object-fit:contain;filter:brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(85deg) drop-shadow(0 0 10px var(--green));mix-blend-mode:screen;opacity:.9;margin-bottom:14px;}
+.login-logo{width:80px;object-fit:contain;filter:drop-shadow(0 0 10px var(--green));margin-bottom:14px;}
 .login-title{font-family:'Orbitron',monospace;font-size:.9rem;font-weight:900;letter-spacing:.18em;margin-bottom:3px;text-shadow:0 0 10px var(--green);}
 .login-sub{font-size:.58rem;color:var(--dim);letter-spacing:.25em;margin-bottom:20px;}
 .login-line{width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent);margin:14px 0;box-shadow:0 0 5px var(--green);}
@@ -266,7 +268,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
   border-bottom:1px solid var(--border);
   backdrop-filter:blur(4px);
 }
-.admin-topbar-logo{width:28px;height:28px;object-fit:contain;filter:brightness(0) invert(1) sepia(1) saturate(6) hue-rotate(85deg) drop-shadow(0 0 7px var(--green));mix-blend-mode:screen;}
+.admin-topbar-logo{width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 7px var(--green));}
 .admin-topbar-title{font-family:'Orbitron',monospace;font-size:.8rem;font-weight:900;letter-spacing:.18em;}
 .admin-topbar-sub{font-size:.55rem;color:var(--dim);letter-spacing:.2em;}
 
@@ -887,7 +889,7 @@ let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null
 let audioCtx = null, audioUnlocked = false;
 
 // ── Squirrel logo ──
-const SQ = 'images/squirrel%20agent.jpeg';
+const SQ = 'images/squirrel_logo.png';
 ['hdr-logo','login-logo','admin-logo'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.src = SQ;
