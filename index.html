@@ -1046,7 +1046,7 @@ function handleQR(data) {
   const actN  = url.searchParams.get('activity');
   if (kidId) {
     const kid = getKid(kidId);
-    if (!kid) { toast('OPERATIVE NOT FOUND', 'error'); return; }
+    if (!kid) { openRecoveryModal(kidId); return; }
     curKid = kidId; renderScannerBadge();
     addLog(kid.name, 'OPERATIVE IDENTIFIED');
     toast('OPERATIVE: ' + kid.name);
@@ -1678,6 +1678,58 @@ function importOperatives(file) {
   // Reset input so same file can be re-imported
   document.getElementById('import-file').value = '';
 }
+
+// ══════════════════════════════════════════
+//  UNKNOWN OPERATIVE RECOVERY
+// ══════════════════════════════════════════
+function openRecoveryModal(kidId) {
+  document.getElementById('recovery-kid-id').value   = kidId;
+  document.getElementById('recovery-codename').value = '';
+  document.getElementById('recovery-aka').value      = '';
+  document.getElementById('recovery-skill').value    = '';
+  document.getElementById('recovery-id-display').textContent = 'QR ID: ' + kidId;
+  document.getElementById('recovery-modal').classList.add('active');
+  setTimeout(() => document.getElementById('recovery-codename').focus(), 100);
+}
+
+function saveRecovery() {
+  const kidId   = document.getElementById('recovery-kid-id').value;
+  const name    = document.getElementById('recovery-codename').value.trim().toUpperCase();
+  const aka     = document.getElementById('recovery-aka').value.trim();
+  const skill   = document.getElementById('recovery-skill').value.trim();
+
+  if (!name) { toast('ENTER A CODENAME', 'warn'); return; }
+
+  // Check codename not already taken by a different ID
+  const existing = state.kids.find(k => k.name === name && k.id !== kidId);
+  if (existing) { toast('CODENAME ALREADY TAKEN', 'warn'); return; }
+
+  // Register with the exact same ID as the printed QR card
+  const kid = { id: kidId, name, aka, skill };
+  state.kids.push(kid);
+  saveState();
+
+  document.getElementById('recovery-modal').classList.remove('active');
+
+  // Now process as a normal scan
+  curKid = kidId;
+  renderScannerBadge();
+  addLog(name, 'OPERATIVE REGISTERED & IDENTIFIED');
+  toast('REGISTERED: ' + name);
+  document.getElementById('scan-status-bar').textContent = 'LOCKED: ' + name + ' — SCAN ACTIVITY';
+
+  // Play intro video
+  if (!state.progress[kidId]) state.progress[kidId] = [];
+  if (!state.progress[kidId].includes('intro')) {
+    state.progress[kidId].push('intro');
+    saveState();
+    setTimeout(() => openVideo('intro'), 400);
+  }
+
+  renderAdmin();
+  updateOperativeDatalist();
+}
+window.openRecoveryModal = openRecoveryModal;
 // ══════════════════════════════════════════
 //  MANUAL LOOKUP
 // ══════════════════════════════════════════
@@ -1868,6 +1920,12 @@ wire('export-btn', exportOperatives);
 document.getElementById('import-file') && document.getElementById('import-file').addEventListener('change', e => {
   importOperatives(e.target.files[0]);
 });
+wire('recovery-save-btn', saveRecovery);
+wire('recovery-close-btn', () => document.getElementById('recovery-modal').classList.remove('active'));
+wire('recovery-cancel-btn', () => document.getElementById('recovery-modal').classList.remove('active'));
+document.getElementById('recovery-codename') && document.getElementById('recovery-codename').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveRecovery();
+});
 wire('manual-submit-btn', manualLookup);
 document.getElementById('manual-input') && document.getElementById('manual-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') manualLookup();
@@ -1892,5 +1950,40 @@ window.closeVideo = closeVideo;
 }); // end DOMContentLoaded
 </script>
 
+
+<!-- UNKNOWN OPERATIVE RECOVERY MODAL -->
+<div class="modal-bg" id="recovery-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="recovery-close-btn">✕</button>
+    <div class="modal-title" style="color:var(--amber)">⚠ UNKNOWN OPERATIVE</div>
+    <p style="font-size:.65rem;color:var(--dim);margin-bottom:14px;line-height:1.7;letter-spacing:.08em">
+      This QR card isn't in the system. Enter the operative's details below to register them 
+      — the same printed card will work immediately.
+    </p>
+    <input type="hidden" id="recovery-kid-id">
+    <div class="field">
+      <label for="recovery-codename">AGENT CODENAME *</label>
+      <input type="text" id="recovery-codename" name="recovery-codename" 
+        placeholder="E.G. MIDNIGHT DAGGER" maxlength="30" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1">
+        <label for="recovery-aka">AKA (REAL NAME)</label>
+        <input type="text" id="recovery-aka" name="recovery-aka" 
+          placeholder="E.G. BEN" maxlength="40" autocomplete="off">
+      </div>
+      <div class="field" style="flex:1">
+        <label for="recovery-skill">SPECIAL SKILL</label>
+        <input type="text" id="recovery-skill" name="recovery-skill" 
+          placeholder="E.G. RELENTLESS" maxlength="50" autocomplete="off">
+      </div>
+    </div>
+    <div style="font-size:.58rem;color:var(--dim);margin-bottom:12px;letter-spacing:.1em" id="recovery-id-display"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-amber" id="recovery-save-btn">✓ REGISTER &amp; CONTINUE</button>
+      <button class="btn btn-danger" id="recovery-cancel-btn">CANCEL</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
