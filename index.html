@@ -20,6 +20,9 @@ html,body{height:100%;overflow:hidden;}
 body{font-family:'Share Tech Mono',monospace;background:var(--black);color:var(--green);}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px);pointer-events:none;z-index:9999;}
 body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.5) 100%);pointer-events:none;z-index:9998;}
+@media(max-width:768px){
+  body::before,body::after{display:none;}
+}
 
 /* ── PAGES ── */
 .page{display:none;height:100vh;flex-direction:column;position:relative;z-index:1;}
@@ -37,6 +40,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
   animation:flicker 8s infinite;
 }
 @keyframes flicker{0%,95%,100%{opacity:1}96%{opacity:.7}97%{opacity:1}98%{opacity:.5}99%{opacity:1}}
+@media(max-width:768px){.hdr-title,.hdr-logo,.no-op-icon img{animation:none;}}
 .hdr-title{font-family:'Orbitron',monospace;font-size:1.12rem;font-weight:900;letter-spacing:.2em;text-shadow:0 0 12px var(--green);}
 .hdr-sub{font-size:0.85rem;color:var(--dim);letter-spacing:.2em;margin-left:4px;}
 .hdr-spacer{flex:1;}
@@ -278,6 +282,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 
 /* ── ADMIN LOGIN PAGE ── */
 #page-admin-login{align-items:center;justify-content:center;height:100vh;}
+@media(max-width:768px){#page-admin-login{contain:layout style;} .login-box input{font-size:16px !important;} }
 .login-box{width:100%;max-width:360px;text-align:center;padding:20px;}
 .login-logo{width:200px;filter:drop-shadow(0 0 12px var(--green));margin-bottom:14px;}
 .login-title{font-family:'Orbitron',monospace;font-size:1.12rem;font-weight:900;letter-spacing:.18em;margin-bottom:3px;text-shadow:0 0 10px var(--green);}
@@ -1076,7 +1081,7 @@ wire('auth-btn', () => {
   }
 });
 document.getElementById('admin-pw-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('auth-btn').click();
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('auth-btn').click(); }
 });
 
 // ══════════════════════════════════════════
@@ -1810,16 +1815,13 @@ function startSyncPoll() {
   clearInterval(syncPollTimer);
   const pollInterval = syncMode === 'viewer' ? 5000 : 10000;
   syncPollTimer = setInterval(async () => {
-    if (syncMode === 'viewer') {
-      // Viewer only fetches on poll (no push) — pushes happen via schedulePush on scan
-      setSyncDot('syncing', 'CHECKING...');
-      const ok = await syncFetch();
-      setSyncDot(ok ? 'ok' : 'err', ok ? 'LIVE' : 'SYNC ERROR');
-    } else {
-      setSyncDot('syncing', 'CHECKING...');
-      const ok = await syncFetch();
-      setSyncDot(ok ? 'ok' : 'err', ok ? 'MASTER' : 'SYNC ERROR');
-    }
+    // Never poll while user is on the login page — causes input lag
+    const activePage = document.querySelector('.page.active');
+    if (activePage && activePage.id === 'page-admin-login') return;
+
+    setSyncDot('syncing', syncMode === 'master' ? 'SAVING...' : 'CHECKING...');
+    const ok = await syncFetch();
+    setSyncDot(ok ? 'ok' : 'err', ok ? (syncMode === 'master' ? 'MASTER' : 'LIVE') : 'SYNC ERROR');
   }, pollInterval);
 }
 async function connectSync() {
