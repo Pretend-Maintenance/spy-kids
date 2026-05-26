@@ -1,7 +1,151 @@
 {
   "password": "spy123",
-  "kids": [],
+  "kids": [
+    {
+      "id": "k_hdkqwy",
+      "name": "SILVER VIPER",
+      "aka": "Hawthorn",
+      "skill": "Computer coding",
+      "team": "SHADOW"
+    },
+    {
+      "id": "k_5cxenx",
+      "name": "NIGHT OWL",
+      "aka": "Cedar",
+      "skill": "Making coffee disappear",
+      "team": "MISSION CONTROL"
+    },
+    {
+      "id": "k_4r74db",
+      "name": "TWILIGHT WHISPER",
+      "aka": "Willow",
+      "skill": "Keeping calm",
+      "team": "SIERRA"
+    },
+    {
+      "id": "k_xythrw",
+      "name": "MIDNIGHT DAGGER",
+      "aka": "Acorn",
+      "skill": "",
+      "team": "STRIKE"
+    },
+    {
+      "id": "k_7h661a",
+      "name": "PHANTOM",
+      "aka": "Berry",
+      "skill": "Magic",
+      "team": "STRIKE"
+    },
+    {
+      "id": "k_w14vr2",
+      "name": "PHANTOM UNICORN",
+      "aka": "Lime",
+      "skill": "Child wrangling",
+      "team": "STRIKE"
+    },
+    {
+      "id": "k_u9z55p",
+      "name": "POPLAR",
+      "aka": "Poplar",
+      "skill": "Firelighting",
+      "team": "MISSION CONTROL"
+    },
+    {
+      "id": "k_qa2v8h",
+      "name": "ROWAN",
+      "aka": "Rowan",
+      "skill": "Pokemon training",
+      "team": "STRIKE"
+    },
+    {
+      "id": "k_bg4dfz",
+      "name": "ELLEN",
+      "aka": "Ellen",
+      "skill": "Mind control via cuteness",
+      "team": "SHADOW"
+    },
+    {
+      "id": "k_7ixvcw",
+      "name": "SCARLETT",
+      "aka": "Scarlett",
+      "skill": "Decoding messages",
+      "team": "STRIKE"
+    },
+    {
+      "id": "k_1wt5vi",
+      "name": "HENRY",
+      "aka": "Henry",
+      "skill": "Teamwork",
+      "team": "STRIKE"
+    },
+    {
+      "id": "k_wk8n5k",
+      "name": "ARTHUR",
+      "aka": "Arthur",
+      "skill": "Silent sleath",
+      "team": ""
+    },
+    {
+      "id": "k_bnnrxz",
+      "name": "MARIA",
+      "aka": "Maria",
+      "skill": "Loud and commanding presence",
+      "team": "SHADOW"
+    },
+    {
+      "id": "k_8wg4ik",
+      "name": "BETHEN",
+      "aka": "Bethen",
+      "skill": "Shadowing operatives",
+      "team": ""
+    },
+    {
+      "id": "k_992l6h",
+      "name": "THEODORA",
+      "aka": "Theodora",
+      "skill": "Creativity",
+      "team": ""
+    },
+    {
+      "id": "k_gn0os1",
+      "name": "JAN",
+      "aka": "Jan",
+      "skill": "Foreign languages",
+      "team": ""
+    },
+    {
+      "id": "k_o9cvx7",
+      "name": "RAPHY",
+      "aka": "Raphy",
+      "skill": "Storytelling",
+      "team": ""
+    },
+    {
+      "id": "k_u6g22f",
+      "name": "THOMAS",
+      "aka": "Thomas",
+      "skill": "Inventing",
+      "team": ""
+    },
+    {
+      "id": "k_qmo9c4",
+      "name": "ZIGGY",
+      "aka": "Ziggy",
+      "skill": "Cheering people up",
+      "team": ""
+    },
+    {
+      "id": "k_m1miz6",
+      "name": "MIDNIGHT PHOENIX",
+      "aka": "OAK",
+      "skill": "BEING THE BOSS(Y ONE)",
+      "team": "MISSION CONTROL"
+    }
+  ],
   "progress": {
+    "k_u6g22f": [
+      "intro"
+    ],
     "k_m1miz6": [
       "intro"
     ],
@@ -67,30 +211,33 @@
   "missions": [
     {
       "id": 1,
-      "name": "INFILTRATION"
+      "name": "DISGUISE"
     },
     {
       "id": 2,
-      "name": "DECRYPTION"
+      "name": "DETECT"
     },
     {
       "id": 3,
-      "name": "EXTRACTION"
+      "name": "STEALTH"
     },
     {
       "id": 4,
-      "name": "SURVEILLANCE"
+      "name": "DIFFUSE"
     },
     {
       "id": 5,
-      "name": "SABOTAGE"
+      "name": "AGILITY TRAINING"
     },
     {
       "id": 6,
-      "name": "EXFILTRATION"
+      "name": "UNLOCK THE INFERNO"
     }
   ],
   "teams": [
-    "MISSION CONTROL"
+    "MISSION CONTROL",
+    "STRIKE",
+    "SHADOW",
+    "SIERRA"
   ]
 }
