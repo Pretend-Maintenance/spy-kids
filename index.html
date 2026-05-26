@@ -1087,6 +1087,7 @@ function handleQR(data) {
     curKid = kidId; renderScannerBadge();
     addLog(kid.name, 'OPERATIVE IDENTIFIED');
     toast('OPERATIVE: ' + kid.name);
+    playLoginSound();
     document.getElementById('scan-status-bar').textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
     return;
   }
@@ -1100,6 +1101,7 @@ function handleQR(data) {
     const m   = state.missions.find(x => x.id === n);
     markDone(curKid, n); renderScannerBadge();
     addLog(kid ? kid.name : '?', 'COMPLETED MISSION ' + n + ': ' + (m ? m.name : ''));
+    playCompleteSound();
     openVideo(n); return;
   }
   toast('UNRECOGNISED QR', 'error');
@@ -1387,7 +1389,7 @@ function toggleM(mid) {
   if (!state.progress[adminKid]) state.progress[adminKid] = [];
   const prog = state.progress[adminKid]; const idx = prog.indexOf(mid);
   const kid = getKid(adminKid);
-  if (idx === -1) { prog.push(mid); addLog(kid ? kid.name : '?', 'ADMIN: MISSION ' + mid + ' COMPLETE'); toast('MISSION ' + mid + ' COMPLETE'); }
+  if (idx === -1) { prog.push(mid); addLog(kid ? kid.name : '?', 'ADMIN: MISSION ' + mid + ' COMPLETE'); toast('MISSION ' + mid + ' COMPLETE'); playCompleteSound(); }
   else { prog.splice(idx, 1); addLog(kid ? kid.name : '?', 'ADMIN: MISSION ' + mid + ' RESET'); toast('MISSION ' + mid + ' RESET', 'warn'); }
   saveState(); renderMT(); renderScannerBadge();
 }
@@ -1810,6 +1812,65 @@ function manualActivity(missionId) {
   setTimeout(renderManualActGrid, 300);
 }
 window.manualActivity = manualActivity;
+
+// ══════════════════════════════════════════
+//  SOUND ENGINE (Web Audio API — no files)
+// ══════════════════════════════════════════
+let audioCtx = null;
+
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Resume if suspended (browser autoplay policy)
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// Short beep utility
+function beep(freq, type, duration, volume, startTime, ctx) {
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type      = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  gain.gain.setValueAtTime(volume, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  osc.start(startTime);
+  osc.stop(startTime + duration);
+}
+
+// ── Operative identified: ascending 3-note "login" chime ──
+// Feels like a secure terminal accepting credentials
+function playLoginSound() {
+  try {
+    const ctx = getAudio();
+    const now = ctx.currentTime;
+    beep(440,  'sine', 0.12, 0.3, now,        ctx); // A4
+    beep(554,  'sine', 0.12, 0.3, now + 0.13, ctx); // C#5
+    beep(659,  'sine', 0.20, 0.4, now + 0.26, ctx); // E5
+  } catch(e) {}
+}
+
+// ── Activity complete: triumphant ascending fanfare ──
+// Energetic, celebratory — reward sound for kids
+function playCompleteSound() {
+  try {
+    const ctx = getAudio();
+    const now = ctx.currentTime;
+    // Main melody
+    beep(523,  'square', 0.10, 0.25, now,        ctx); // C5
+    beep(659,  'square', 0.10, 0.25, now + 0.11, ctx); // E5
+    beep(784,  'square', 0.10, 0.25, now + 0.22, ctx); // G5
+    beep(1047, 'square', 0.22, 0.35, now + 0.33, ctx); // C6 - held
+    // Harmony layer
+    beep(659,  'sine',   0.10, 0.20, now + 0.33, ctx); // E5 harmony
+    beep(784,  'sine',   0.08, 0.18, now + 0.36, ctx); // G5 harmony
+  } catch(e) {}
+}
+
+// Unlock audio on first user interaction (browser policy)
+document.addEventListener('click', () => { try { getAudio(); } catch(e) {} }, { once: true });
+document.addEventListener('keydown', () => { try { getAudio(); } catch(e) {} }, { once: true });
 // ══════════════════════════════════════════
 //  MOBILE TABS
 // ══════════════════════════════════════════
