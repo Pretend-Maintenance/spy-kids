@@ -477,7 +477,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
       <div class="col-body">
         <div class="live-scroll" id="live-scroll">
           <div class="no-op" id="no-op">
-            <div class="no-op-icon">🐿️</div>
+            <div class="no-op-icon"><img src="images/squirrel_logo.png" alt=""></div>
             <div class="no-op-txt">AWAITING OPERATIVE SCAN</div>
           </div>
         </div>
@@ -1112,7 +1112,7 @@ function handleQR(data) {
 function renderScannerBadge() {
   const scroll = document.getElementById('live-scroll');
   if (!curKid) {
-    scroll.innerHTML = '<div class="no-op"><div class="no-op-icon">🐿️</div><div class="no-op-txt">AWAITING OPERATIVE SCAN</div></div>';
+    scroll.innerHTML = '<div class="no-op"><div class="no-op-icon"><img src=\'images/squirrel_logo.png\' alt=\'\'/></div><div class="no-op-txt">AWAITING OPERATIVE SCAN</div></div>';
     document.getElementById('scan-status-bar').textContent = 'SCANNER ACTIVE — PRESENT OPERATIVE CARD';
     return;
   }
