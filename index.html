@@ -976,6 +976,7 @@ async function startCamera() {
       stream = await navigator.mediaDevices.getUserMedia(constraint);
       break;
     } catch(e) {
+    if (e.name === 'AbortError') return; // ignore
       if (constraint === constraints[constraints.length - 1]) {
         // All failed
         if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
