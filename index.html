@@ -838,8 +838,11 @@ input::placeholder{color:rgba(0,255,65,.2);}
             <div style="flex:1">
               <div style="font-size:.72rem;letter-spacing:.1em;color:var(--green)" id="sync-status-txt">CONNECTED</div>
               <div id="sync-last-saved" style="font-size:.58rem;color:var(--dim);margin-top:2px">Syncing...</div>
+              <div style="font-size:.6rem;color:var(--dim);margin-top:2px" id="sync-mode-lbl"></div>
             </div>
-            <button class="btn btn-sm btn-danger" id="sync-disconnect-btn">DISCONNECT</button>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button class="btn btn-sm btn-danger" id="sync-disconnect-btn">DISCONNECT</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1358,12 +1361,15 @@ wire('confirm-quickadd-btn', () => {
 function renderAdmin() {
   renderKidList(); renderMissionConfig(); renderSelects(); renderAQRs(); updateOperativeDatalist(); renderTeamsList(); updateTeamDatalist();
   const inp = document.getElementById('sync-token-input');
-  if (inp && syncToken) inp.value = syncToken;
-  // Restore role radio selection
-  if (syncToken) {
-    const roleEl = document.getElementById('role-' + syncMode);
-    if (roleEl) roleEl.checked = true;
+  if (inp) {
+    if (syncToken) {
+      inp.value = syncToken;
+      inp.placeholder = 'Token saved ✓';
+    }
   }
+  // Restore role radio selection
+  const roleEl = document.getElementById('role-' + (syncMode || 'viewer'));
+  if (roleEl) roleEl.checked = true;
   setSyncUI(!!syncToken);
 }
 
@@ -1671,9 +1677,33 @@ unlockAudio();
 loadSyncConfig();
 if (syncToken) {
   setSyncUI(true); setSyncDot('syncing', 'CONNECTING...');
-  syncFetch().then(ok => {
-    if (ok) { setSyncDot('ok', 'SYNCED'); startSyncPoll(); renderScannerBadge(); }
-    else { setSyncUI(false); setSyncDot('err', 'ERROR'); }
+  // Fetch remote to get syncSha, but don't overwrite local state on viewer
+  fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
+    headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
+  }).then(r => {
+    if (r.ok) return r.json();
+    if (r.status === 404) return null; // new file
+    throw new Error('HTTP ' + r.status);
+  }).then(d => {
+    if (d) {
+      syncSha = d.sha; // get the SHA so pushes don't conflict
+      if (syncMode === 'master') {
+        // Master: load remote state
+        const remote = JSON.parse(atob(d.content.replace(/
+/g, '')));
+        state = remote; saveLocal();
+      }
+      // Viewer: keep local state, just note the SHA
+    }
+    setSyncDot('ok', syncMode === 'master' ? 'MASTER' : 'LIVE');
+    setSyncUI(true);
+    startSyncPoll();
+    renderScannerBadge();
+    updateOperativeDatalist();
+  }).catch(e => {
+    setSyncUI(false);
+    setSyncDot('err', 'ERROR');
+    console.log('Sync init error:', e);
   });
 } else {
   setSyncDot('off', 'OFFLINE');
@@ -1706,11 +1736,12 @@ function saveSyncConfig() {
   else { localStorage.removeItem(SYNC_KEY); localStorage.removeItem(SYNC_MODE_KEY); }
 }
 function setSyncUI(connected) {
-  // Pill always visible — just update admin panel state
   const disc = document.getElementById('sync-disconnected');
   const conn = document.getElementById('sync-connected');
   if (disc) disc.style.display = connected ? 'none' : 'block';
   if (conn) conn.style.display = connected ? 'block' : 'none';
+  const lbl = document.getElementById('sync-mode-lbl');
+  if (lbl) lbl.textContent = connected ? (syncMode === 'master' ? '💻 MASTER — pushes all changes' : '📱 VIEWER — scans sync back') : '';
 }
 function setSyncDot(status, text) {
   const dot = document.getElementById('sync-dot');
