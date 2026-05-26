@@ -4,6 +4,13 @@
     {
       "id": "k_6zw0qf",
       "name": "SPY KID 1"
+    },
+    {
+      "id": "k_bbyg8a",
+      "name": "TESTING PHONE",
+      "aka": "co",
+      "skill": "test",
+      "team": "TEAM ALPHA"
     }
   ],
   "progress": {
@@ -37,5 +44,11 @@
       "id": 6,
       "name": "EXFILTRATION"
     }
+  ],
+  "teams": [
+    "TEAM ALPHA",
+    "TEAM BRAVO",
+    "TEAM CHARLIE",
+    "TEAM DELTA"
   ]
 }
