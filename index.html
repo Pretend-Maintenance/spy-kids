@@ -870,7 +870,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
 <div id="video-modal">
   <div class="vm-hdr">◈ INCOMING MISSION BRIEFING ◈</div>
   <div class="vm-title" id="vm-title">MISSION 1</div>
-  <video id="mission-video" controls></video>
+  <video id="mission-video" controls playsinline webkit-playsinline></video>
   <div class="vm-hint">[ PRESS CLOSE WHEN BRIEFING COMPLETE ]</div>
   <div style="margin-top:13px"><button class="btn" id="close-video-btn">◼ CLOSE BRIEFING</button></div>
 </div>
@@ -1181,21 +1181,57 @@ function renderScannerBadge() {
 // ══════════════════════════════════════════
 function openVideo(n) {
   if (n === 'intro') return;
-  const m = state.missions.find(x => x.id === n);
+  const m   = state.missions.find(x => x.id === n);
+  const v   = document.getElementById('mission-video');
   document.getElementById('vm-title').textContent = 'MISSION ' + n + ': ' + (m ? m.name : '');
-  const v = document.getElementById('mission-video');
-  v.src = 'videos/activity1.mp4';
-  v.currentTime = 0;
+
+  // Ensure not muted
+  v.muted  = false;
+  v.volume = 1.0;
+  v.src    = 'videos/activity1.mp4';
+  v.load(); // Force browser to load before play
+
   document.getElementById('video-modal').classList.add('active');
-  v.play().catch(() => {});
+
+  // Play — if autoplay blocks, show a tap-to-play prompt
+  const playPromise = v.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(() => {
+      // Autoplay blocked — show tap prompt
+      const hint = document.getElementById('vm-hint');
+      if (hint) {
+        hint.textContent = '[ TAP VIDEO TO PLAY ]';
+        hint.style.color = 'var(--amber)';
+        hint.style.animation = 'none';
+      }
+    });
+  }
   v.onended = closeVideo;
 }
 function closeVideo() {
   const v = document.getElementById('mission-video'); v.pause(); v.src = '';
   document.getElementById('video-modal').classList.remove('active');
+  // Reset hint text
+  const hint = document.getElementById('vm-hint');
+  if (hint) {
+    hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]';
+    hint.style.color = '';
+    hint.style.animation = '';
+  }
   renderScannerBadge();
 }
 wire('close-video-btn', closeVideo);
+// Tap video to play if autoplay was blocked
+document.getElementById('mission-video').addEventListener('click', () => {
+  const v = document.getElementById('mission-video');
+  v.muted = false; v.volume = 1.0;
+  if (v.paused) v.play().catch(() => {});
+  const hint = document.getElementById('vm-hint');
+  if (hint && hint.textContent.includes('TAP')) {
+    hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]';
+    hint.style.color = ''; hint.style.animation = '';
+  }
+});
 
 // ══════════════════════════════════════════
 //  QUICK ADD
