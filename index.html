@@ -1088,12 +1088,6 @@ function handleQR(data) {
     addLog(kid.name, 'OPERATIVE IDENTIFIED');
     toast('OPERATIVE: ' + kid.name);
     document.getElementById('scan-status-bar').textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
-    if (!state.progress[kidId]) state.progress[kidId] = [];
-    if (!state.progress[kidId].includes('intro')) {
-      state.progress[kidId].push('intro');
-      saveState();
-      setTimeout(() => openVideo('intro'), 400);
-    }
     return;
   }
   if (actN) {
