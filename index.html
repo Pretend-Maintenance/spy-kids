@@ -1759,7 +1759,7 @@ async function syncPush(isNew) {
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
     const body = { message: 'Cherhill Spy sync', content };
-    if (syncSha && !isNew) body.sha = syncSha;
+    if (syncSha) body.sha = syncSha; // always include SHA if we have it
     const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
       method: 'PUT',
       headers: { 'Authorization': 'token ' + syncToken, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
@@ -1774,8 +1774,16 @@ async function syncPush(isNew) {
       if (el) el.textContent = 'Last saved: ' + t;
     } else {
       const err = await r.json();
-      if (err.message && err.message.includes('sha')) { await syncFetch(); await syncPush(); }
-      else setSyncDot('err', 'SYNC ERROR');
+      if (err.message && err.message.toLowerCase().includes('sha')) {
+        // SHA conflict - refetch and retry once
+        const r2 = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
+          headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (r2.ok) { const d2 = await r2.json(); syncSha = d2.sha; await syncPush(); }
+      } else {
+        setSyncDot('err', 'ERR:' + (err.message||r.status));
+        toast('SYNC ERROR: ' + (err.message||r.status), 'error');
+      }
     }
   } catch { setSyncDot('err', 'ERROR'); }
   finally { isPushing = false; }
