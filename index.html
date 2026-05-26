@@ -584,8 +584,16 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
 <!-- ══ PAGE: ADMIN ══ -->
 <div class="page" id="page-admin">
-  <!-- Sticky top bar -->
-  <div class="admin-topbar">
+  <!-- Mobile admin tabs -->
+  <div class="mob-admin-toggle" id="mob-admin-tabs">
+    <button class="mob-admin-tab active" onclick="mobAdminTab('scan')">📷 SCAN</button>
+    <button class="mob-admin-tab" onclick="mobAdminTab('operatives')">🐿 AGENTS</button>
+    <button class="mob-admin-tab" onclick="mobAdminTab('sync')">🔄 SYNC</button>
+    <button class="mob-admin-tab" onclick="mobAdminTab('config')">⚙ CONFIG</button>
+  </div>
+
+  <!-- Sticky top bar (desktop) -->
+  <div class="admin-topbar" id="admin-desktop-hdr">
     <img class="admin-topbar-logo" id="admin-logo" src="" alt="">
     <div>
       <div class="admin-topbar-title">ADMIN PANEL</div>
@@ -600,7 +608,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
   <div class="admin-wrap">
 
     <!-- ══ SECTION: OPERATIVES ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-operatives">
       <div class="section-hdr">
         <div class="section-icon">🐿️</div>
         <div class="section-title">OPERATIVES</div>
@@ -635,7 +643,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: EDIT PROGRESS ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-scan">
       <div class="section-hdr">
         <div class="section-icon">✏️</div>
         <div class="section-title">EDIT PROGRESS</div>
@@ -675,7 +683,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: MISSION NAMES ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-missions">
       <div class="section-hdr">
         <div class="section-icon">📋</div>
         <div class="section-title">MISSION NAMES</div>
@@ -687,7 +695,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: QR CODES ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-qr-operative">
       <div class="section-hdr">
         <div class="section-icon">📲</div>
         <div class="section-title">OPERATIVE QR CODES</div>
@@ -712,7 +720,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: ACTIVITY STATION QRS ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-qr-activity">
       <div class="section-hdr">
         <div class="section-icon">🎯</div>
         <div class="section-title">ACTIVITY STATION QR CODES</div>
@@ -725,7 +733,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: BACKUP & RESTORE ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-backup">
       <div class="section-hdr">
         <div class="section-icon">💾</div>
         <div class="section-title">BACKUP &amp; RESTORE</div>
@@ -750,7 +758,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: TEAMS ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-teams">
       <div class="section-hdr">
         <div class="section-icon">👥</div>
         <div class="section-title">TEAMS</div>
@@ -769,7 +777,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: RESET PROGRESS ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-sync">
       <div class="section-hdr">
         <div class="section-icon">🔄</div>
         <div class="section-title">RESET PROGRESS</div>
@@ -787,7 +795,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: LIVE SYNC ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-sync">
       <div class="section-hdr">
         <div class="section-icon">🔄</div>
         <div class="section-title">LIVE SYNC</div>
@@ -834,7 +842,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="admin-divider"></div>
 
     <!-- ══ SECTION: SETTINGS ══ -->
-    <div class="admin-section">
+    <div class="admin-section" id="section-password">
       <div class="section-hdr">
         <div class="section-icon">🔒</div>
         <div class="section-title">ACCESS CODE</div>
@@ -1044,7 +1052,7 @@ const PAGES = ['page-scanner','page-admin-login','page-admin'];
 function showPage(id) {
   PAGES.forEach(p => document.getElementById(p).classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if (id === 'page-admin') { stopAdminCamera(); renderAdmin(); }
+  if (id === 'page-admin') { stopAdminCamera(); renderAdmin(); setTimeout(initMobAdmin, 50); }
   if (id === 'page-scanner') {
     stopAdminCamera(); resetScanner(); renderScannerBadge();
     // Return to scanner tab on mobile
@@ -1721,7 +1729,13 @@ async function syncFetch() {
       state = remote; saveLocal();
       renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
       const p = document.querySelector('.page.active');
-      if (p && p.id === 'page-admin') renderAdmin();
+      if (p && p.id === 'page-admin') {
+        if (window.innerWidth <= 768) {
+          renderKidList(); renderSelects(); updateOperativeDatalist(); renderTeamsList();
+        } else {
+          renderAdmin();
+        }
+      }
     }
     return true;
   } catch { return false; }
@@ -1839,6 +1853,32 @@ function disconnectSync() {
   toast('DISCONNECTED', 'warn');
 }
 
+
+// ══════════════════════════════════════════
+//  MOBILE ADMIN TABS
+// ══════════════════════════════════════════
+const MOB_SECTIONS = {
+  scan:       ['section-scan'],
+  operatives: ['section-operatives'],
+  sync:       ['section-sync'],
+  config:     ['section-missions','section-qr-operative','section-qr-activity',
+               'section-teams','section-backup','section-password','admin-desktop-hdr'],
+};
+const ALL_MOB_SECTIONS = [...new Set(Object.values(MOB_SECTIONS).flat())];
+
+function mobAdminTab(tab) {
+  if (window.innerWidth > 768) return;
+  document.querySelectorAll('.mob-admin-tab').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector('.mob-admin-tab[onclick*="' + tab + '"]');
+  if (btn) btn.classList.add('active');
+  ALL_MOB_SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  (MOB_SECTIONS[tab] || []).forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+}
+window.mobAdminTab = mobAdminTab;
+
+function initMobAdmin() {
+  if (window.innerWidth <= 768) mobAdminTab('scan');
+}
 // ══════════════════════════════════════════
 //  TEAM MANAGEMENT
 // ══════════════════════════════════════════
