@@ -142,6 +142,15 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 
   /* Mission grid on mobile */
   .mgrid{grid-template-columns:repeat(2,1fr);}
+
+  /* No-op logo on mobile */
+  .no-op-icon img{height:120px;}
+
+  /* Tab bar logo */
+  .mob-tab-icon img{height:22px;}
+
+  /* Admin page on mobile needs padding for tab bar */
+  #page-admin-login{height:100dvh;}
 }
 
 
@@ -502,7 +511,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
       SCANNER
     </button>
     <button class="mob-tab" id="tab-feed" onclick="mobTab('feed')">
-      <div class="mob-tab-icon">🐿️</div>
+      <div class="mob-tab-icon"><img src="images/squirrel_logo.png" style="height:22px;filter:drop-shadow(0 0 4px var(--green));"></div>
       LIVE FEED
       <div class="mob-tab-badge" id="tab-feed-badge">0</div>
     </button>
