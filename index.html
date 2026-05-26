@@ -1416,37 +1416,37 @@ wire('clear-prog-btn', () => {
 // ══════════════════════════════════════════
 function makeQRUrl(params) { return getBase() + '?' + new URLSearchParams(params).toString(); }
 
-let qrDiv = null;
+// qrDiv removed - genQR now uses local divs
 function genQR(text, canvas, size) {
-  if (qrDiv) qrDiv.remove();
-  qrDiv = document.createElement('div');
-  qrDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + size + 'px;height:' + size + 'px';
-  document.body.appendChild(qrDiv);
+  // Each call gets its own container - no shared state between concurrent calls
+  const div = document.createElement('div');
+  div.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + size + 'px;height:' + size + 'px';
+  document.body.appendChild(div);
   return new Promise(resolve => {
-    try { new QRCode(qrDiv, { text, width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
-    catch(e) { resolve(false); return; }
+    try { new QRCode(div, { text, width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+    catch(e) { div.remove(); resolve(false); return; }
     let attempts = 0;
     function poll() {
       attempts++;
-      const qrCanvas = qrDiv.querySelector('canvas');
-      const qrImg    = qrDiv.querySelector('img');
+      const qrCanvas = div.querySelector('canvas');
+      const qrImg    = div.querySelector('img');
       if (qrCanvas && qrCanvas.width > 0) {
         canvas.width = canvas.height = size;
         canvas.getContext('2d').drawImage(qrCanvas, 0, 0, size, size);
-        resolve(true); return;
+        div.remove(); resolve(true); return;
       }
       if (qrImg && qrImg.complete && qrImg.naturalWidth > 0) {
         canvas.width = canvas.height = size;
         canvas.getContext('2d').drawImage(qrImg, 0, 0, size, size);
-        resolve(true); return;
+        div.remove(); resolve(true); return;
       }
       if (qrImg && !qrImg.complete) {
-        qrImg.onload  = () => { canvas.width = canvas.height = size; canvas.getContext('2d').drawImage(qrImg, 0, 0, size, size); resolve(true); };
-        qrImg.onerror = () => resolve(false);
+        qrImg.onload  = () => { canvas.width = canvas.height = size; canvas.getContext('2d').drawImage(qrImg, 0, 0, size, size); div.remove(); resolve(true); };
+        qrImg.onerror = () => { div.remove(); resolve(false); };
         return;
       }
-      if (attempts < 20) setTimeout(poll, 50);
-      else resolve(false);
+      if (attempts < 20) { setTimeout(poll, 50); }
+      else { div.remove(); resolve(false); }
     }
     setTimeout(poll, 50);
   });
