@@ -1060,7 +1060,7 @@ function showPage(id) {
   document.getElementById(id).classList.add('active');
   if (id === 'page-admin') { stopAdminCamera(); renderAdmin(); setTimeout(initMobAdmin, 50); }
   if (id === 'page-scanner') {
-    stopAdminCamera(); resetScanner(); renderScannerBadge();
+    stopAdminCamera(); setTimeout(resetScanner, 150); renderScannerBadge();
     // Return to scanner tab on mobile
     mobTab('scanner');
   }
@@ -1116,7 +1116,7 @@ async function startCamera() {
       stream = await navigator.mediaDevices.getUserMedia(constraint);
       break;
     } catch(e) {
-    if (e.name === 'AbortError') return; // ignore
+    if (e.name === 'AbortError') { setTimeout(startCamera, 800); return; } // retry
       if (constraint === constraints[constraints.length - 1]) {
         // All failed
         if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
@@ -1679,9 +1679,9 @@ if (syncToken) {
   setSyncDot('off', 'OFFLINE');
 }
 checkUrlParams();
-startCamera();
 renderScannerBadge();
 updateOperativeDatalist();
+setTimeout(startCamera, 400);
 
 
 
