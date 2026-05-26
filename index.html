@@ -481,7 +481,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <span class="hdr-title">CHERHILL SPY ACADEMY</span>
     <span class="hdr-sub">OPERATIVE COMMAND</span>
     <div class="hdr-spacer"></div>
-    <div id="sync-status-pill" style="display:flex;align-items:center;gap:5px;font-size:.6rem;letter-spacing:.12em;color:var(--dim);border:1px solid var(--border);padding:3px 8px;margin-right:6px">
+    <div id="sync-status-pill" style="display:flex;align-items:center;gap:5px;font-size:.6rem;letter-spacing:.12em;color:var(--dim);border:1px solid var(--border);padding:3px 8px;margin-right:6px;cursor:pointer" onclick="forceSyncNow()" title="Tap to sync now">
       <div id="sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--dim);transition:all .3s"></div>
       <span id="sync-label">OFFLINE</span>
     </div>
@@ -1699,9 +1699,9 @@ if (syncToken) {
     renderScannerBadge();
     updateOperativeDatalist();
   }).catch(e => {
-    setSyncUI(false);
-    setSyncDot('err', 'ERROR');
-    console.log('Sync init error:', e);
+    // Don't hide UI on error - token is still saved, show error state
+    setSyncUI(true);
+    setSyncDot('err', 'CONNECT ERROR - TAP ADMIN TO RETRY');
   });
 } else {
   setSyncDot('off', 'OFFLINE');
@@ -1787,7 +1787,7 @@ async function syncFetch() {
 async function syncPush(isNew) {
   if (!syncToken) return;
   isPushing = true;
-  setSyncDot('syncing', 'SAVING...');
+  setSyncDot('syncing', syncMode === 'master' ? 'SAVING...' : 'SYNCING...');
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
     const body = { message: 'Cherhill Spy sync', content };
@@ -1843,11 +1843,9 @@ function startSyncPoll() {
   clearInterval(syncPollTimer);
   const pollInterval = syncMode === 'viewer' ? 5000 : 10000;
   syncPollTimer = setInterval(async () => {
-    // Never poll while user is on the login page — causes input lag
     const activePage = document.querySelector('.page.active');
     if (activePage && activePage.id === 'page-admin-login') return;
-
-    setSyncDot('syncing', syncMode === 'master' ? 'SAVING...' : 'CHECKING...');
+    setSyncDot('syncing', 'CHECKING...');
     const ok = await syncFetch();
     setSyncDot(ok ? 'ok' : 'err', ok ? (syncMode === 'master' ? 'MASTER' : 'LIVE') : 'SYNC ERROR');
   }, pollInterval);
@@ -1859,7 +1857,8 @@ async function connectSync() {
   const roleEl = document.querySelector('input[name="sync-role"]:checked');
   syncMode  = roleEl ? roleEl.value : 'viewer';
   syncToken = token;
-  try { localStorage.setItem('cherhill_sync_token', syncToken); sessionStorage.setItem('cherhill_sync_token', syncToken); localStorage.setItem('cherhill_sync_mode', syncMode); } catch(e) {}
+  saveSyncConfig(); // save token+mode immediately
+  try { sessionStorage.setItem(SYNC_KEY, syncToken); sessionStorage.setItem(SYNC_MODE_KEY, syncMode); } catch(e) {}
   setSyncDot('syncing', 'CONNECTING...');
   const ok = await syncFetch();
   if (ok) {
@@ -2481,6 +2480,17 @@ document.getElementById('manual-input') && document.getElementById('manual-input
 });
 
 window.exportOperatives = exportOperatives;
+
+function forceSyncNow() {
+  if (!syncToken) { toast('NOT CONNECTED — GO TO ADMIN > SYNC', 'warn'); return; }
+  setSyncDot('syncing', 'SYNCING...');
+  if (syncMode === 'master') {
+    syncFetch().then(ok => setSyncDot(ok?'ok':'err', ok?'MASTER':'SYNC ERROR'));
+  } else {
+    syncViewerProgress().then(() => setSyncDot('ok','LIVE')).catch(() => setSyncDot('err','SYNC ERROR'));
+  }
+}
+window.forceSyncNow = forceSyncNow;
 // Expose functions needed by inline HTML event handlers
 window.mobTab = mobTab;
 window.showPage = showPage;
