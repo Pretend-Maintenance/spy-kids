@@ -1,19 +1,7 @@
 {
   "password": "spy123",
-  "kids": [
-    {
-      "id": "k_8zfe1l",
-      "name": "TESTER3",
-      "aka": "added tester",
-      "skill": "tester",
-      "team": "TEST"
-    }
-  ],
+  "kids": [],
   "progress": {
-    "k_8zfe1l": [
-      2,
-      1
-    ],
     "k_u6g22f": [
       "intro"
     ],
