@@ -1096,7 +1096,7 @@ function handleQR(data) {
     if (n < 1 || n > state.missions.length) { toast('UNKNOWN ACTIVITY', 'error'); return; }
     if (!curKid) { toast('SCAN OPERATIVE CARD FIRST', 'warn'); return; }
     const done = getProg(curKid);
-    if (done.includes(n)) { toast('MISSION ' + n + ' ALREADY DONE', 'warn'); return; }
+    if (done.includes(n)) { toast('MISSION ' + n + ' ALREADY DONE', 'warn'); playAlreadyDoneSound(); return; }
     const kid = getKid(curKid);
     const m   = state.missions.find(x => x.id === n);
     markDone(curKid, n); renderScannerBadge();
@@ -1807,6 +1807,12 @@ function manualLookup() {
 
 function manualActivity(missionId) {
   if (!curKid) { toast('SELECT AN OPERATIVE FIRST', 'warn'); return; }
+  // Check if already done before passing to handleQR
+  if (getProg(curKid).includes(missionId)) {
+    toast('MISSION ' + missionId + ' ALREADY DONE', 'warn');
+    playAlreadyDoneSound();
+    return;
+  }
   const url = makeQRUrl({ activity: missionId });
   handleQR(url);
   setTimeout(renderManualActGrid, 300);
@@ -1839,32 +1845,49 @@ function beep(freq, type, duration, volume, startTime, ctx) {
   osc.stop(startTime + duration);
 }
 
-// ── Operative identified: ascending 3-note "login" chime ──
-// Feels like a secure terminal accepting credentials
+// ── Operative identified: longer spy-agency login sequence ──
+// Slow sweep up then a confident held tone — like clearance being granted
 function playLoginSound() {
   try {
     const ctx = getAudio();
     const now = ctx.currentTime;
-    beep(440,  'sine', 0.12, 0.3, now,        ctx); // A4
-    beep(554,  'sine', 0.12, 0.3, now + 0.13, ctx); // C#5
-    beep(659,  'sine', 0.20, 0.4, now + 0.26, ctx); // E5
+    // Opening beeps — processing feel
+    beep(330,  'sine', 0.08, 0.18, now,        ctx);
+    beep(370,  'sine', 0.08, 0.18, now + 0.10, ctx);
+    beep(415,  'sine', 0.08, 0.18, now + 0.20, ctx);
+    beep(494,  'sine', 0.10, 0.20, now + 0.30, ctx);
+    // Pause then ascending confirmation chord
+    beep(440,  'sine', 0.15, 0.28, now + 0.50, ctx); // A4
+    beep(554,  'sine', 0.15, 0.28, now + 0.65, ctx); // C#5
+    beep(659,  'sine', 0.15, 0.28, now + 0.80, ctx); // E5
+    // Final held clearance tone
+    beep(880,  'sine', 0.55, 0.40, now + 1.00, ctx); // A5 — long hold
+    beep(659,  'sine', 0.35, 0.50, now + 1.02, ctx); // E5 harmony under it
   } catch(e) {}
 }
 
 // ── Activity complete: triumphant ascending fanfare ──
-// Energetic, celebratory — reward sound for kids
 function playCompleteSound() {
   try {
     const ctx = getAudio();
     const now = ctx.currentTime;
-    // Main melody
     beep(523,  'square', 0.10, 0.25, now,        ctx); // C5
     beep(659,  'square', 0.10, 0.25, now + 0.11, ctx); // E5
     beep(784,  'square', 0.10, 0.25, now + 0.22, ctx); // G5
     beep(1047, 'square', 0.22, 0.35, now + 0.33, ctx); // C6 - held
-    // Harmony layer
     beep(659,  'sine',   0.10, 0.20, now + 0.33, ctx); // E5 harmony
     beep(784,  'sine',   0.08, 0.18, now + 0.36, ctx); // G5 harmony
+  } catch(e) {}
+}
+
+// ── Activity already scanned: low double-buzz rejection tone ──
+// Firm but not harsh — tells the kid it's already done
+function playAlreadyDoneSound() {
+  try {
+    const ctx = getAudio();
+    const now = ctx.currentTime;
+    beep(220, 'sawtooth', 0.18, 0.35, now,        ctx); // low buzz
+    beep(196, 'sawtooth', 0.18, 0.30, now + 0.22, ctx); // slightly lower second buzz
   } catch(e) {}
 }
 
