@@ -622,6 +622,10 @@ input::placeholder{color:rgba(0,255,65,.2);}
             <label class="flabel" for="new-kid-skill">SPECIAL SKILL</label>
             <input type="text" id="new-kid-skill" name="new-kid-skill" placeholder="E.G. BEING RELENTLESS" maxlength="50" autocomplete="off">
           </div>
+          <div style="flex:1">
+            <label class="flabel" for="new-kid-team">TEAM</label>
+            <input type="text" id="new-kid-team" name="new-kid-team" placeholder="E.G. TEAM ALPHA" maxlength="30" autocomplete="off">
+          </div>
         </div>
         <button class="btn btn-sm" id="add-kid-btn" style="align-self:flex-start">+ ADD OPERATIVE</button>
       </div>
@@ -930,6 +934,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ── All vars declared first to avoid TDZ errors ──
 let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
 let audioCtx = null, audioUnlocked = false;
+let pendingActivityId = null, selectedAgents = new Set();
 
 // ── Squirrel logo ──
 const SQ = 'images/squirrel_logo.png';
@@ -1348,13 +1353,15 @@ wire('add-kid-btn', () => {
   const codename = document.getElementById('new-kid-codename').value.trim().toUpperCase();
   const aka      = document.getElementById('new-kid-aka').value.trim();
   const skill    = document.getElementById('new-kid-skill').value.trim();
+  const team     = document.getElementById('new-kid-team').value.trim().toUpperCase();
   if (!codename) { toast('ENTER A CODENAME', 'warn'); return; }
   if (state.kids.find(k => k.name === codename)) { toast('ALREADY EXISTS', 'warn'); return; }
-  state.kids.push({ id: genId(), name: codename, aka, skill });
+  state.kids.push({ id: genId(), name: codename, aka, skill, team });
   saveState();
   document.getElementById('new-kid-codename').value = '';
   document.getElementById('new-kid-aka').value = '';
   document.getElementById('new-kid-skill').value = '';
+  document.getElementById('new-kid-team').value = '';
   renderAdmin();
   addLog(codename, 'OPERATIVE REGISTERED'); toast('ADDED: ' + codename);
 });
@@ -1852,9 +1859,6 @@ window.openActivityModal = openActivityModal;
 // ══════════════════════════════════════════
 //  ACTIVITY TEAM SELECT
 // ══════════════════════════════════════════
-let pendingActivityId = null;
-let selectedAgents    = new Set();
-
 function openActivityModal(missionId) {
   pendingActivityId = missionId;
   selectedAgents.clear();
