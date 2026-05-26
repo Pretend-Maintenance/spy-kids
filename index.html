@@ -1788,11 +1788,6 @@ function schedulePush() {
   } else {
     syncPushTimer = setTimeout(syncViewerProgress, 1000);
   }
-}); }, 1000);
-  } else {
-    syncPushTimer = setTimeout(() => { syncViewerProgress().then(() => { syncPushTimer = null; }); }, 1000);
-  }
-}
 
 async function syncViewerProgress() {
   // 1. Get latest remote state
