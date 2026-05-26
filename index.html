@@ -811,7 +811,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.9rem;letter-spacing:.1em;padding:8px 12px;border:1px solid var(--border);flex:1" id="role-viewer-lbl">
                 <input type="radio" name="sync-role" id="role-viewer" value="viewer" checked style="accent-color:var(--green);width:16px;height:16px">
-                📱 VIEWER <span style="font-size:0.75rem;color:var(--dim);display:block;margin-top:2px">Tablet — reads only, auto-updates</span>
+                📱 VIEWER <span style="font-size:0.75rem;color:var(--dim);display:block;margin-top:2px">Tablet — scans sync back, config from master</span>
               </label>
             </div>
           </div>
@@ -1728,7 +1728,6 @@ async function syncFetch() {
 }
 async function syncPush(isNew) {
   if (!syncToken) return;
-  if (syncMode !== 'master') return; // viewers never write
   setSyncDot('syncing', 'SAVING...');
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
@@ -1754,15 +1753,59 @@ async function syncPush(isNew) {
 }
 function schedulePush() {
   clearTimeout(syncPushTimer);
-  syncPushTimer = setTimeout(syncPush, 1000);
+  if (syncMode === 'master') {
+    // Master pushes everything immediately
+    syncPushTimer = setTimeout(syncPush, 1000);
+  } else {
+    // Viewer: fetch remote first, merge progress, then push
+    syncPushTimer = setTimeout(syncViewerProgress, 1000);
+  }
+}
+
+async function syncViewerProgress() {
+  // 1. Get latest remote state
+  if (!syncToken) return;
+  setSyncDot('syncing', 'SAVING...');
+  try {
+    const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
+      headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (r.ok) {
+      const d = await r.json();
+      syncSha = d.sha;
+      const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
+      // 2. Merge: keep remote's kids/teams/missions, merge progress
+      // (viewer's progress additions win, but remote progress also kept)
+      const mergedProgress = { ...remote.progress };
+      Object.keys(state.progress).forEach(kidId => {
+        if (!mergedProgress[kidId]) mergedProgress[kidId] = [];
+        state.progress[kidId].forEach(m => {
+          if (!mergedProgress[kidId].includes(m)) mergedProgress[kidId].push(m);
+        });
+      });
+      // 3. Build merged state — remote is authority for everything except progress
+      const merged = { ...remote, progress: mergedProgress };
+      state = merged;
+      saveLocal();
+    }
+  } catch(e) {}
+  // 4. Push merged state
+  await syncPush();
 }
 function startSyncPoll() {
   clearInterval(syncPollTimer);
   const pollInterval = syncMode === 'viewer' ? 5000 : 10000;
   syncPollTimer = setInterval(async () => {
-    setSyncDot('syncing', 'CHECKING...');
-    const ok = await syncFetch();
-    setSyncDot(ok ? 'ok' : 'err', ok ? (syncMode === 'master' ? 'MASTER' : 'SYNCED') : 'SYNC ERROR');
+    if (syncMode === 'viewer') {
+      // Viewer only fetches on poll (no push) — pushes happen via schedulePush on scan
+      setSyncDot('syncing', 'CHECKING...');
+      const ok = await syncFetch();
+      setSyncDot(ok ? 'ok' : 'err', ok ? 'LIVE' : 'SYNC ERROR');
+    } else {
+      setSyncDot('syncing', 'CHECKING...');
+      const ok = await syncFetch();
+      setSyncDot(ok ? 'ok' : 'err', ok ? 'MASTER' : 'SYNC ERROR');
+    }
   }, pollInterval);
 }
 async function connectSync() {
@@ -1778,7 +1821,9 @@ async function connectSync() {
     saveSyncConfig(); setSyncUI(true);
     const modeLabel = syncMode === 'master' ? 'MASTER' : 'SYNCED';
     setSyncDot('ok', modeLabel); startSyncPoll();
-    toast('SYNC CONNECTED AS ' + syncMode.toUpperCase());
+    const roleDesc = syncMode === 'master' ? 'MASTER — will push all changes' : 'VIEWER — scans sync back, config pulled from master';
+    toast('CONNECTED: ' + (syncMode === 'master' ? 'MASTER' : 'VIEWER'));
+    document.getElementById('sync-status-txt') && (document.getElementById('sync-status-txt').textContent = syncMode === 'master' ? 'MASTER' : 'LIVE');
   } else {
     syncToken = null; setSyncDot('err', 'FAILED');
     toast('FAILED — CHECK TOKEN', 'error');
