@@ -1431,7 +1431,7 @@ function removeKid(id) {
   state.kids = state.kids.filter(k => k.id !== id); delete state.progress[id];
   saveLocal();
   // Push immediately — don't wait for debounce, prevents sync overwrite
-  if (syncToken) { clearTimeout(syncPushTimer); syncPushTimer = null; syncPush().then(() => { syncPushTimer = null; }); }
+  if (syncToken) { clearTimeout(syncPushTimer); syncPush(); }
   renderAdmin(); if (curKid === id) { curKid = null; renderScannerBadge(); } toast('REMOVED');
 }
 function editKid(id) {
@@ -1459,7 +1459,7 @@ function saveEditKid() {
   if (!kid) return;
   kid.name = name; kid.aka = aka; kid.skill = skill; kid.team = team;
   saveLocal();
-  if (syncToken) { clearTimeout(syncPushTimer); syncPushTimer = null; syncPush().then(() => { syncPushTimer = null; }); }
+  if (syncToken) { clearTimeout(syncPushTimer); syncPush(); }
   document.getElementById('edit-operative-modal').classList.remove('active');
   renderAdmin(); renderScannerBadge();
   toast('OPERATIVE UPDATED');
@@ -1755,6 +1755,7 @@ async function syncFetch() {
 }
 async function syncPush(isNew) {
   if (!syncToken) return;
+  isPushing = true;
   setSyncDot('syncing', 'SAVING...');
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
@@ -1778,11 +1779,16 @@ async function syncPush(isNew) {
       else setSyncDot('err', 'SYNC ERROR');
     }
   } catch { setSyncDot('err', 'ERROR'); }
+  finally { isPushing = false; }
 }
 function schedulePush() {
   clearTimeout(syncPushTimer);
   if (syncMode === 'master') {
-    syncPushTimer = setTimeout(() => { syncPush().then(() => { syncPushTimer = null; }); }, 1000);
+    syncPushTimer = setTimeout(syncPush, 1000);
+  } else {
+    syncPushTimer = setTimeout(syncViewerProgress, 1000);
+  }
+}); }, 1000);
   } else {
     syncPushTimer = setTimeout(() => { syncViewerProgress().then(() => { syncPushTimer = null; }); }, 1000);
   }
