@@ -1431,7 +1431,7 @@ function removeKid(id) {
   state.kids = state.kids.filter(k => k.id !== id); delete state.progress[id];
   saveLocal();
   // Push immediately — don't wait for debounce, prevents sync overwrite
-  if (syncToken) { clearTimeout(syncPushTimer); syncPush(); }
+  if (syncToken) { clearTimeout(syncPushTimer); syncPushTimer = null; syncPush().then(() => { syncPushTimer = null; }); }
   renderAdmin(); if (curKid === id) { curKid = null; renderScannerBadge(); } toast('REMOVED');
 }
 function editKid(id) {
@@ -1459,7 +1459,7 @@ function saveEditKid() {
   if (!kid) return;
   kid.name = name; kid.aka = aka; kid.skill = skill; kid.team = team;
   saveLocal();
-  if (syncToken) { clearTimeout(syncPushTimer); syncPush(); }
+  if (syncToken) { clearTimeout(syncPushTimer); syncPushTimer = null; syncPush().then(() => { syncPushTimer = null; }); }
   document.getElementById('edit-operative-modal').classList.remove('active');
   renderAdmin(); renderScannerBadge();
   toast('OPERATIVE UPDATED');
@@ -1733,8 +1733,8 @@ async function syncFetch() {
     const d = await r.json();
     syncSha = d.sha;
     const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
-    // Don't overwrite if we have a pending push (would undo local changes)
-    if (syncPushTimer) return true;
+    // Don't overwrite if a push is actively debouncing
+    if (syncPushTimer && syncMode === 'master') return true;
 
     // Master: only update if remote differs
     // Viewer: always accept remote as truth
@@ -1767,7 +1767,8 @@ async function syncPush(isNew) {
     });
     if (r.ok) {
       const d = await r.json(); syncSha = d.content.sha;
-      setSyncDot('ok', 'SYNCED');
+      syncPushTimer = null; // clear so master can receive updates again
+      setSyncDot('ok', syncMode === 'master' ? 'MASTER' : 'LIVE');
       const t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const el = document.getElementById('sync-last-saved');
       if (el) el.textContent = 'Last saved: ' + t;
@@ -1781,11 +1782,9 @@ async function syncPush(isNew) {
 function schedulePush() {
   clearTimeout(syncPushTimer);
   if (syncMode === 'master') {
-    // Master pushes everything immediately
-    syncPushTimer = setTimeout(syncPush, 1000);
+    syncPushTimer = setTimeout(() => { syncPush().then(() => { syncPushTimer = null; }); }, 1000);
   } else {
-    // Viewer: fetch remote first, merge progress, then push
-    syncPushTimer = setTimeout(syncViewerProgress, 1000);
+    syncPushTimer = setTimeout(() => { syncViewerProgress().then(() => { syncPushTimer = null; }); }, 1000);
   }
 }
 
