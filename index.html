@@ -1147,18 +1147,12 @@ function renderScannerBadge() {
 //  VIDEO
 // ══════════════════════════════════════════
 function openVideo(n) {
-  let title, src;
-  if (n === 'intro') {
-    title = '🐿️ CHERHILL SPY ACADEMY — MISSION BRIEFING';
-    src   = 'videos/intro.mp4';
-  } else {
-    const m = state.missions.find(x => x.id === n);
-    title = 'MISSION ' + n + ': ' + (m ? m.name : '');
-    src   = 'videos/activity' + n + '.mp4';
-  }
-  document.getElementById('vm-title').textContent = title;
+  if (n === 'intro') return;
+  const m = state.missions.find(x => x.id === n);
+  document.getElementById('vm-title').textContent = 'MISSION ' + n + ': ' + (m ? m.name : '');
   const v = document.getElementById('mission-video');
-  v.src = src; v.currentTime = 0;
+  v.src = 'videos/activity1.mp4';
+  v.currentTime = 0;
   document.getElementById('video-modal').classList.add('active');
   v.play().catch(() => {});
   v.onended = closeVideo;
@@ -1774,16 +1768,7 @@ function saveRecovery() {
   addLog(name, 'OPERATIVE REGISTERED & IDENTIFIED');
   toast('REGISTERED: ' + name);
   document.getElementById('scan-status-bar').textContent = 'LOCKED: ' + name + ' — SCAN ACTIVITY';
-
-  // Play intro video
-  if (!state.progress[kidId]) state.progress[kidId] = [];
-  if (!state.progress[kidId].includes('intro')) {
-    state.progress[kidId].push('intro');
-    saveState();
-    setTimeout(() => openVideo('intro'), 400);
-  }
-
-  renderAdmin();
+    renderAdmin();
   updateOperativeDatalist();
 }
 window.openRecoveryModal = openRecoveryModal;
