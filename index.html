@@ -1736,9 +1736,8 @@ async function syncFetch() {
     // Don't overwrite if a push is actively debouncing
     if (syncPushTimer && syncMode === 'master') return true;
 
-    // Master: only update if remote differs
-    // Viewer: always accept remote as truth
-    if (syncMode === 'viewer' || JSON.stringify(remote) !== JSON.stringify(state)) {
+    // Always update if remote differs
+    if (JSON.stringify(remote) !== JSON.stringify(state)) {
       state = remote; saveLocal();
       renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
       const p = document.querySelector('.page.active');
@@ -1791,33 +1790,13 @@ function schedulePush() {
 }
 
 async function syncViewerProgress() {
-  // 1. Get latest remote state
   if (!syncToken) return;
-  setSyncDot('syncing', 'SAVING...');
   try {
     const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
       headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
     });
-    if (r.ok) {
-      const d = await r.json();
-      syncSha = d.sha;
-      const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
-      // 2. Merge: keep remote's kids/teams/missions, merge progress
-      // (viewer's progress additions win, but remote progress also kept)
-      const mergedProgress = { ...remote.progress };
-      Object.keys(state.progress).forEach(kidId => {
-        if (!mergedProgress[kidId]) mergedProgress[kidId] = [];
-        state.progress[kidId].forEach(m => {
-          if (!mergedProgress[kidId].includes(m)) mergedProgress[kidId].push(m);
-        });
-      });
-      // 3. Build merged state — remote is authority for everything except progress
-      const merged = { ...remote, progress: mergedProgress };
-      state = merged;
-      saveLocal();
-    }
+    if (r.ok) { const d = await r.json(); syncSha = d.sha; }
   } catch(e) {}
-  // 4. Push merged state
   await syncPush();
 }
 function startSyncPoll() {
