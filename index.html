@@ -843,6 +843,42 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
 <script src="js/jsQR.min.js"></script>
 <script src="js/qrcode.min.js"></script>
+
+<!-- UNKNOWN OPERATIVE RECOVERY MODAL -->
+<div class="modal-bg" id="recovery-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="recovery-close-btn">✕</button>
+    <div class="modal-title" style="color:var(--amber)">⚠ UNKNOWN OPERATIVE</div>
+    <p style="font-size:.65rem;color:var(--dim);margin-bottom:14px;line-height:1.7;letter-spacing:.08em">
+      This QR card isn't in the system. Enter the operative's details below to register them 
+      — the same printed card will work immediately.
+    </p>
+    <input type="hidden" id="recovery-kid-id">
+    <div class="field">
+      <label for="recovery-codename">AGENT CODENAME *</label>
+      <input type="text" id="recovery-codename" name="recovery-codename" 
+        placeholder="E.G. MIDNIGHT DAGGER" maxlength="30" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1">
+        <label for="recovery-aka">AKA (REAL NAME)</label>
+        <input type="text" id="recovery-aka" name="recovery-aka" 
+          placeholder="E.G. BEN" maxlength="40" autocomplete="off">
+      </div>
+      <div class="field" style="flex:1">
+        <label for="recovery-skill">SPECIAL SKILL</label>
+        <input type="text" id="recovery-skill" name="recovery-skill" 
+          placeholder="E.G. RELENTLESS" maxlength="50" autocomplete="off">
+      </div>
+    </div>
+    <div style="font-size:.58rem;color:var(--dim);margin-bottom:12px;letter-spacing:.1em" id="recovery-id-display"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-amber" id="recovery-save-btn">✓ REGISTER &amp; CONTINUE</button>
+      <button class="btn btn-danger" id="recovery-cancel-btn">CANCEL</button>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -1383,16 +1419,36 @@ function makeQRUrl(params) { return getBase() + '?' + new URLSearchParams(params
 let qrDiv = null;
 function genQR(text, canvas, size) {
   if (qrDiv) qrDiv.remove();
-  qrDiv = document.createElement('div'); qrDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
+  qrDiv = document.createElement('div');
+  qrDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + size + 'px;height:' + size + 'px';
   document.body.appendChild(qrDiv);
   return new Promise(resolve => {
-    new QRCode(qrDiv, { text, width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
-    setTimeout(() => {
-      const img = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
-      if (!img) { resolve(false); return; }
-      const src = img.tagName === 'CANVAS' ? img.toDataURL() : img.src;
-      const i = new Image(); i.onload = () => { canvas.width = canvas.height = size; canvas.getContext('2d').drawImage(i, 0, 0, size, size); resolve(true); }; i.src = src;
-    }, 100);
+    try { new QRCode(qrDiv, { text, width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+    catch(e) { resolve(false); return; }
+    let attempts = 0;
+    function poll() {
+      attempts++;
+      const qrCanvas = qrDiv.querySelector('canvas');
+      const qrImg    = qrDiv.querySelector('img');
+      if (qrCanvas && qrCanvas.width > 0) {
+        canvas.width = canvas.height = size;
+        canvas.getContext('2d').drawImage(qrCanvas, 0, 0, size, size);
+        resolve(true); return;
+      }
+      if (qrImg && qrImg.complete && qrImg.naturalWidth > 0) {
+        canvas.width = canvas.height = size;
+        canvas.getContext('2d').drawImage(qrImg, 0, 0, size, size);
+        resolve(true); return;
+      }
+      if (qrImg && !qrImg.complete) {
+        qrImg.onload  = () => { canvas.width = canvas.height = size; canvas.getContext('2d').drawImage(qrImg, 0, 0, size, size); resolve(true); };
+        qrImg.onerror = () => resolve(false);
+        return;
+      }
+      if (attempts < 20) setTimeout(poll, 50);
+      else resolve(false);
+    }
+    setTimeout(poll, 50);
   });
 }
 
@@ -1952,39 +2008,5 @@ window.closeVideo = closeVideo;
 </script>
 
 
-<!-- UNKNOWN OPERATIVE RECOVERY MODAL -->
-<div class="modal-bg" id="recovery-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="recovery-close-btn">✕</button>
-    <div class="modal-title" style="color:var(--amber)">⚠ UNKNOWN OPERATIVE</div>
-    <p style="font-size:.65rem;color:var(--dim);margin-bottom:14px;line-height:1.7;letter-spacing:.08em">
-      This QR card isn't in the system. Enter the operative's details below to register them 
-      — the same printed card will work immediately.
-    </p>
-    <input type="hidden" id="recovery-kid-id">
-    <div class="field">
-      <label for="recovery-codename">AGENT CODENAME *</label>
-      <input type="text" id="recovery-codename" name="recovery-codename" 
-        placeholder="E.G. MIDNIGHT DAGGER" maxlength="30" autocomplete="off">
-    </div>
-    <div style="display:flex;gap:8px">
-      <div class="field" style="flex:1">
-        <label for="recovery-aka">AKA (REAL NAME)</label>
-        <input type="text" id="recovery-aka" name="recovery-aka" 
-          placeholder="E.G. BEN" maxlength="40" autocomplete="off">
-      </div>
-      <div class="field" style="flex:1">
-        <label for="recovery-skill">SPECIAL SKILL</label>
-        <input type="text" id="recovery-skill" name="recovery-skill" 
-          placeholder="E.G. RELENTLESS" maxlength="50" autocomplete="off">
-      </div>
-    </div>
-    <div style="font-size:.58rem;color:var(--dim);margin-bottom:12px;letter-spacing:.1em" id="recovery-id-display"></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-amber" id="recovery-save-btn">✓ REGISTER &amp; CONTINUE</button>
-      <button class="btn btn-danger" id="recovery-cancel-btn">CANCEL</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
