@@ -1,19 +1,7 @@
 {
   "password": "spy123",
-  "kids": [
-    {
-      "id": "k_bbyg8a",
-      "name": "TESTING PHONE",
-      "aka": "co",
-      "skill": "test",
-      "team": "TEAM ALPHA"
-    }
-  ],
-  "progress": {
-    "k_bbyg8a": [
-      2
-    ]
-  },
+  "kids": [],
+  "progress": {},
   "missions": [
     {
       "id": 1,
