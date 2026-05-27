@@ -143,7 +143,7 @@
     },
     {
       "id": "k_bbyg8a",
-      "name": "TEST-H",
+      "name": "TESTY",
       "aka": "",
       "skill": "",
       "team": ""
@@ -155,6 +155,9 @@
     ],
     "k_w14vr2": [
       2
+    ],
+    "k_bbyg8a": [
+      5
     ]
   },
   "missions": [
@@ -188,5 +191,8 @@
     "STRIKE",
     "SHADOW",
     "SIERRA"
-  ]
+  ],
+  "scans": {
+    "k_bbyg8a": "2026-05-27T14:26:33.928Z"
+  }
 }
