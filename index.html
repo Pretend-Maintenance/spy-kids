@@ -1019,6 +1019,7 @@ let lastPushTime = 0, isPushing = false;
 let syncMode = 'viewer';
 let audioCtx = null, audioUnlocked = false;
 let pendingActivityId = null, selectedAgents = new Set();
+let videoPlaying = false, pendingSaveAfterVideo = false;
 
 // ── Debug log (defined early so all code can use it) ──
 const debugLog = [];
@@ -1352,49 +1353,62 @@ function openVideo(n) {
   if (!v) return;
   document.getElementById('vm-title').textContent = 'MISSION ' + n + ': ' + (m ? m.name : '');
 
-  // Reset hint text
   const hint = document.getElementById('vm-hint');
   if (hint) { hint.textContent = '[ TAP TO DISMISS ]'; hint.style.color = ''; hint.style.animation = ''; }
 
-  v.muted  = false;
+  videoPlaying = true;
+
+  // Start muted — autoplay always works muted regardless of gesture staleness.
+  // We unmute once the browser confirms playback has actually started.
+  v.muted  = true;
   v.volume = 1.0;
   v.src    = 'videos/activity1.mp4';
   v.onended = closeVideo;
 
   document.getElementById('video-modal').classList.add('active');
 
-  // Load then play — more reliable on mobile than src+load+play together
-  v.load();
-  const tryPlay = () => {
-    v.play().catch(e => {
-      if (e.name === 'AbortError' || e.name === 'NotAllowedError') {
-        // Autoplay blocked or interrupted — show tap prompt
-        if (hint) {
-          hint.textContent = '[ TAP VIDEO TO PLAY ]';
-          hint.style.color = 'var(--amber)';
-        }
-        // Allow manual tap to play
-        v.onclick = () => { v.play(); v.onclick = null; };
+  // Remove any previous one-shot listeners
+  v.oncanplay  = null;
+  v.onplaying  = null;
+
+  v.oncanplay = () => {
+    v.oncanplay = null;
+    v.play().then(() => {
+      // Playing muted — now safely unmute
+      v.muted = false;
+      if (hint && hint.textContent === '[ TAP TO DISMISS ]') {
+        hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]';
       }
+    }).catch(e => {
+      // Muted play should never fail, but just in case
+      v.muted = false;
+      if (hint) {
+        hint.textContent = '[ TAP VIDEO TO PLAY ]';
+        hint.style.color = 'var(--amber)';
+      }
+      v.onclick = () => { v.muted = false; v.play().catch(()=>{}); v.onclick = null; };
     });
   };
-  // Small delay gives mobile browser time to register the modal as visible
-  setTimeout(tryPlay, 100);
+
+  v.load();
 }
 function closeVideo() {
-  const v = document.getElementById('mission-video'); v.pause(); v.src = '';
+  const v = document.getElementById('mission-video');
+  v.pause(); v.src = '';
+  v.oncanplay = null; v.onplaying = null;
   document.getElementById('video-modal').classList.remove('active');
-  // Reset hint text
   const hint = document.getElementById('vm-hint');
   if (hint) {
     hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]';
-    hint.style.color = '';
-    hint.style.animation = '';
+    hint.style.color = ''; hint.style.animation = '';
   }
+  videoPlaying = false;
+  // Flush any save that was deferred while video was playing
+  if (pendingSaveAfterVideo) { pendingSaveAfterVideo = false; saveState(); }
   renderScannerBadge();
 }
 wire('close-video-btn', closeVideo);
-// Tap video to play if autoplay was blocked
+// Tap video to play/unmute if autoplay was blocked
 document.getElementById('mission-video').addEventListener('click', () => {
   const v = document.getElementById('mission-video');
   v.muted = false; v.volume = 1.0;
@@ -1980,6 +1994,8 @@ async function syncPush(isNew) {
 function schedulePush() {
   dbLog('SCHEDULE PUSH mode:' + syncMode);
   clearTimeout(syncPushTimer);
+  // Don't push while a video is playing — network activity can abort the play promise on mobile
+  if (videoPlaying) { pendingSaveAfterVideo = true; return; }
   if (syncMode === 'master') {
     syncPushTimer = setTimeout(() => { syncPushTimer = null; syncPush(); }, 1000);
   } else {
@@ -2351,9 +2367,8 @@ function confirmActivity() {
   renderManualActGrid();
   if (names.length) {
     playCompleteSound();
+    pendingSaveAfterVideo = true; // saveState deferred until video closes
     openVideo(pendingActivityId);
-    // Delay saveState/push until after video — prevents sync render from aborting video
-    setTimeout(saveState, 500);
   } else {
     toast('ALL SELECTED ALREADY DONE', 'warn');
     playAlreadyDoneSound();
@@ -2775,3 +2790,4 @@ window.closeVideo = closeVideo;
 
 </body>
 </html>
+
