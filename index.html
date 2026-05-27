@@ -1222,7 +1222,12 @@ async function startCamera() {
     statusEl.textContent = 'SCANNER ACTIVE — PRESENT QR CODE';
     scanInterval = setInterval(tick, 150);
   } catch(e) {
-    statusEl.textContent = 'CAMERA STREAM ERROR — ' + e.name;
+    if (e.name === 'AbortError' || e.name === 'NotAllowedError' && e.message.includes('abort')) {
+      // Browser aborted stream (page navigation or user action) — not an error
+      return;
+    }
+    if (statusEl) statusEl.textContent = 'Camera error: ' + e.name + ' — try reloading the page';
+    dbLog('CAMERA ERROR: ' + e.name + ' — ' + e.message);
   }
 }
 function stopCamera() {
@@ -1337,23 +1342,20 @@ function openVideo(n) {
   v.muted  = false;
   v.volume = 1.0;
   v.src    = 'videos/activity1.mp4';
-  v.load(); // Force browser to load before play
+  v.load();
 
   document.getElementById('video-modal').classList.add('active');
 
-  // Play — if autoplay blocks, show a tap-to-play prompt
-  const playPromise = v.play();
-  if (playPromise !== undefined) {
-    playPromise.catch(() => {
-      // Autoplay blocked — show tap prompt
-      const hint = document.getElementById('vm-hint');
-      if (hint) {
-        hint.textContent = '[ TAP VIDEO TO PLAY ]';
-        hint.style.color = 'var(--amber)';
-        hint.style.animation = 'none';
-      }
-    });
-  }
+  v.play().catch(e => {
+    if (e.name === 'AbortError') return; // navigation/reload, ignore
+    // Autoplay blocked — show tap prompt
+    const hint = document.getElementById('vm-hint');
+    if (hint) {
+      hint.textContent = '[ TAP VIDEO TO PLAY ]';
+      hint.style.color = 'var(--amber)';
+      hint.style.animation = 'none';
+    }
+  });
   v.onended = closeVideo;
 }
 function closeVideo() {
