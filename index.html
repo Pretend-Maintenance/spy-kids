@@ -1882,11 +1882,16 @@ async function syncFetch() {
     if (r.status === 404) { await syncPush(true); return true; }
     if (!r.ok) return false;
     const d = await r.json();
-    syncSha = d.sha;
-    let remote; try { remote = JSON.parse(atob(d.content.replace(/\n/g, ''))); } catch(e) { return false; }
+    if (!isPushing) {
+      syncSha = knownGoodSha && d.sha < knownGoodSha ? knownGoodSha : d.sha;
+      if (d.sha !== knownGoodSha && knownGoodSha) dbLog('FETCH: CDN sha, using known good');
+      else { syncSha = d.sha; knownGoodSha = d.sha; }
+    }
+        let remote; try { remote = JSON.parse(atob(d.content.replace(/\n/g, ''))); } catch(e) { return false; }
     // Don't overwrite if a push is actively debouncing
     if (syncPushTimer && syncMode === 'master') return true;
 
+    knownGoodSha = d.sha; // confirmed good SHA
     // Don't overwrite while a push is queued (viewer only)
     if (syncPushTimer && syncMode === 'viewer') {
       dbLog('FETCH: push pending, skipping overwrite');
@@ -1923,8 +1928,8 @@ async function syncPush(isNew) {
       body: JSON.stringify(body)
     });
     if (r.ok) {
-      const d = await r.json(); syncSha = d.content.sha;
-      syncSha = d.content.sha; // lock SHA before clearing isPushing
+      const d = await r.json(); syncSha = d.content.sha; // lock SHA
+      knownGoodSha = d.content.sha;
       dbLog('PUSH OK new sha:' + d.content.sha.slice(0,8));
       syncPushTimer = null;
       setSyncDot('ok', syncMode === 'master' ? 'MASTER' : 'LIVE');
