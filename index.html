@@ -1015,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── All vars declared first to avoid TDZ errors ──
 let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
-let lastPushTime = 0, isPushing = false, knownGoodSha = null;
+let lastPushTime = 0, isPushing = false;
 let syncMode = 'viewer';
 let audioCtx = null, audioUnlocked = false;
 let pendingActivityId = null, selectedAgents = new Set();
@@ -1886,12 +1886,12 @@ async function syncFetch() {
     if (r.status === 404) { await syncPush(true); return true; }
     if (!r.ok) { dbLog('FETCH ERROR: HTTP ' + r.status + ' ' + r.statusText); return false; }
     const d = await r.json();
-    if (!isPushing) { syncSha = d.sha; knownGoodSha = d.sha; }
+    if (!isPushing) { syncSha = d.sha; }
     let remote; try { remote = JSON.parse(atob(d.content.replace(/\n/g, ''))); } catch(e) { return false; }
     // Don't overwrite if a push is actively debouncing
     if (syncPushTimer && syncMode === 'master') return true;
 
-    knownGoodSha = d.sha; // confirmed good SHA
+    // confirmed good SHA
     // Don't overwrite while a push is queued (viewer only)
     if (syncPushTimer && syncMode === 'viewer') {
       dbLog('FETCH: push pending, skipping overwrite');
@@ -1929,7 +1929,6 @@ async function syncPush(isNew) {
     });
     if (r.ok) {
       const d = await r.json(); syncSha = d.content.sha; // lock SHA
-      knownGoodSha = d.content.sha;
       dbLog('PUSH OK new sha:' + d.content.sha.slice(0,8));
       syncPushTimer = null;
       setSyncDot('ok', syncMode === 'master' ? 'MASTER' : 'LIVE');
@@ -1956,9 +1955,9 @@ function schedulePush() {
   dbLog('SCHEDULE PUSH mode:' + syncMode);
   clearTimeout(syncPushTimer);
   if (syncMode === 'master') {
-    syncPushTimer = setTimeout(syncPush, 1000);
+    syncPushTimer = setTimeout(() => { syncPushTimer = null; syncPush(); }, 1000);
   } else {
-    syncPushTimer = setTimeout(syncViewerProgress, 1000);
+    syncPushTimer = setTimeout(() => { syncPushTimer = null; syncViewerProgress(); }, 1000);
   }
 }
 
