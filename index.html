@@ -1876,9 +1876,13 @@ async function syncFetch() {
   if (!syncToken) return false;
   dbLog('FETCH sha:' + (syncSha||'none').slice(0,8) + ' mode:' + syncMode);
   try {
+    const _fc = new AbortController();
+    const _ft = setTimeout(() => _fc.abort(), 8000);
     const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
-      headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
+      headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' },
+      signal: _fc.signal
     });
+    clearTimeout(_ft);
     if (r.status === 404) { await syncPush(true); return true; }
     if (!r.ok) { dbLog('FETCH ERROR: HTTP ' + r.status + ' ' + r.statusText); return false; }
     const d = await r.json();
