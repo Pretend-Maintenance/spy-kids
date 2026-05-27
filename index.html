@@ -983,23 +983,23 @@ input::placeholder{color:rgba(0,255,65,.2);}
     <div class="field">
       <label for="recovery-codename">AGENT CODENAME *</label>
       <input type="text" id="recovery-codename" name="recovery-codename" 
-        placeholder="E.G. MIDNIGHT DAGGER" maxlength="30" autocomplete="off">
+        placeholder="E.G. MIDNIGHT DAGGER" maxlength="30" autocomplete="off" style="font-size:16px">
     </div>
     <div style="display:flex;gap:8px">
       <div class="field" style="flex:1">
         <label for="recovery-aka">AKA (REAL NAME)</label>
         <input type="text" id="recovery-aka" name="recovery-aka" 
-          placeholder="E.G. BEN" maxlength="40" autocomplete="off">
+          placeholder="E.G. BEN" maxlength="40" autocomplete="off" style="font-size:16px">
       </div>
       <div class="field" style="flex:1">
         <label for="recovery-skill">SPECIAL SKILL</label>
         <input type="text" id="recovery-skill" name="recovery-skill" 
-          placeholder="E.G. RELENTLESS" maxlength="50" autocomplete="off">
+          placeholder="E.G. RELENTLESS" maxlength="50" autocomplete="off" style="font-size:16px">
       </div>
       <div class="field" style="flex:1">
         <label for="recovery-team">TEAM</label>
         <input type="text" id="recovery-team" name="recovery-team" 
-          placeholder="E.G. TEAM ALPHA" maxlength="30" autocomplete="off">
+          placeholder="E.G. TEAM ALPHA" maxlength="30" autocomplete="off" style="font-size:16px">
       </div>
     </div>
     <div style="font-size:.58rem;color:var(--dim);margin-bottom:12px;letter-spacing:.1em" id="recovery-id-display"></div>
@@ -1018,6 +1018,40 @@ let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null
 let syncMode = 'viewer';
 let audioCtx = null, audioUnlocked = false;
 let pendingActivityId = null, selectedAgents = new Set();
+
+// ── Debug log (defined early so all code can use it) ──
+const debugLog = [];
+let _dbLogRaf = false;
+function dbLog(msg) {
+  const t = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  debugLog.push('['+t+'] '+msg);
+  if (debugLog.length > 500) debugLog.shift();
+  if (!_dbLogRaf) {
+    _dbLogRaf = true;
+    requestAnimationFrame(() => {
+      _dbLogRaf = false;
+      const panel = document.getElementById('debug-panel');
+      if (!panel || !panel.classList.contains('active')) return;
+      const c = document.getElementById('debug-log-content');
+      if (c) c.innerHTML = debugLog.slice(-200).reverse()
+        .map(e=>'<div class="dblog-line">'+e.replace(/</g,'&lt;')+'</div>').join('');
+    });
+  }
+}
+function clearDebugLog() {
+  debugLog.length = 0;
+  const c = document.getElementById('debug-log-content');
+  if (c) c.innerHTML = '<div class="dblog-line" style="color:var(--dim)">— cleared —</div>';
+}
+function copyDebugLog() {
+  const text = debugLog.join('\n');
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Debug log copied')); return; }
+  const ta = document.createElement('textarea'); ta.value = text;
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  toast('Debug log copied');
+}
+window.clearDebugLog = clearDebugLog;
+window.copyDebugLog = copyDebugLog;
 
 // ── Squirrel logo ──
 const SQ = 'images/squirrel_logo.png';
@@ -2594,21 +2628,21 @@ window.closeVideo = closeVideo;
     <input type="hidden" id="edit-op-id">
     <div class="field">
       <label for="edit-op-codename">AGENT CODENAME *</label>
-      <input type="text" id="edit-op-codename" name="edit-op-codename" maxlength="30" autocomplete="off" placeholder="E.G. MIDNIGHT DAGGER">
+      <input type="text" id="edit-op-codename" name="edit-op-codename" maxlength="30" autocomplete="off" placeholder="E.G. MIDNIGHT DAGGER" style="font-size:16px">
     </div>
     <div style="display:flex;gap:8px">
       <div class="field" style="flex:1">
         <label for="edit-op-aka">AKA (REAL NAME)</label>
-        <input type="text" id="edit-op-aka" name="edit-op-aka" maxlength="40" autocomplete="off" placeholder="E.G. BEN">
+        <input type="text" id="edit-op-aka" name="edit-op-aka" maxlength="40" autocomplete="off" placeholder="E.G. BEN" style="font-size:16px">
       </div>
       <div class="field" style="flex:1">
         <label for="edit-op-team">TEAM</label>
-        <input type="text" id="edit-op-team" name="edit-op-team" maxlength="30" autocomplete="off" placeholder="E.G. TEAM ALPHA" list="team-datalist">
+        <input type="text" id="edit-op-team" name="edit-op-team" maxlength="30" autocomplete="off" placeholder="E.G. TEAM ALPHA" list="team-datalist" style="font-size:16px">
       </div>
     </div>
     <div class="field">
       <label for="edit-op-skill">SPECIAL SKILL</label>
-      <input type="text" id="edit-op-skill" name="edit-op-skill" maxlength="50" autocomplete="off" placeholder="E.G. BEING RELENTLESS">
+      <input type="text" id="edit-op-skill" name="edit-op-skill" maxlength="50" autocomplete="off" placeholder="E.G. BEING RELENTLESS" style="font-size:16px">
     </div>
     <div style="display:flex;gap:8px;margin-top:6px">
       <button class="btn btn-amber" id="edit-op-save-btn">✓ SAVE CHANGES</button>
