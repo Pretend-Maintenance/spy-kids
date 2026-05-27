@@ -142,7 +142,11 @@
       "team": "MISSION CONTROL"
     }
   ],
-  "progress": {},
+  "progress": {
+    "k_5cxenx": [
+      5
+    ]
+  },
   "missions": [
     {
       "id": 1,
