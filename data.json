@@ -190,6 +190,14 @@
     "SIERRA"
   ],
   "scans": {
-    "k_bbyg8a": "2026-05-27T15:27:00.654Z"
-  }
+    "k_bbyg8a": "2026-05-27T15:27:00.654Z",
+    "k_xythrw": "2026-05-27T19:51:03.264Z"
+  },
+  "actLog": [
+    {
+      "name": "MIDNIGHT DAGGER",
+      "action": "OPERATIVE IDENTIFIED",
+      "t": "20:51:03"
+    }
+  ]
 }
