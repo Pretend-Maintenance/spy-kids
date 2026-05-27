@@ -140,13 +140,6 @@
       "aka": "OAK",
       "skill": "BEING THE BOSS(Y ONE)",
       "team": "MISSION CONTROL"
-    },
-    {
-      "id": "k_bbyg8a",
-      "name": "TESTY",
-      "aka": "",
-      "skill": "",
-      "team": ""
     }
   ],
   "progress": {
@@ -155,9 +148,6 @@
     ],
     "k_w14vr2": [
       2
-    ],
-    "k_bbyg8a": [
-      5
     ]
   },
   "missions": [
