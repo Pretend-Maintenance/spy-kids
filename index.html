@@ -469,6 +469,17 @@ input::placeholder{color:rgba(0,255,65,.2);}
 .agent-name{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:700;flex:1;}
 .agent-meta{font-size:0.75rem;color:var(--dim);}
 @media(min-width:769px){.mob-admin-toggle{display:none !important;}}
+
+/* ── DEBUG LOG ── */
+#debug-panel{position:fixed;inset:0;background:rgba(0,0,0,.97);z-index:9000;display:none;flex-direction:column;}
+#debug-panel.active{display:flex;}
+.debug-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.debug-hdr-title{font-family:'Orbitron',monospace;font-size:.85rem;color:var(--green);letter-spacing:.15em;flex:1;}
+.debug-body{flex:1;overflow-y:auto;padding:10px 14px;font-family:'Share Tech Mono',monospace;}
+.dblog-line{font-size:.72rem;color:#7f7;padding:3px 0;border-bottom:1px solid rgba(0,255,65,.06);word-break:break-all;}
+.dblog-line.sync{color:#ffb300;}
+.dblog-line.err{color:#ff5555;}
+.dblog-line.scan{color:#00ff41;}
 </style>
 </head>
 <body>
@@ -850,6 +861,22 @@ input::placeholder{color:rgba(0,255,65,.2);}
 
     <div class="admin-divider"></div>
 
+    <!-- ══ SECTION: DEBUG ══ -->
+    <div class="admin-section" id="section-debug">
+      <div class="section-hdr">
+        <div class="section-icon">⚙</div>
+        <div class="section-title">DEBUG LOG</div>
+        <div class="section-desc">SESSION EVENTS</div>
+      </div>
+      <div class="card">
+        <p style="font-size:0.85rem;color:var(--dim);margin-bottom:12px;line-height:1.7;letter-spacing:.07em">
+          Records all sync activity, scans and errors since the page loaded. Copy and share if you need help diagnosing an issue.
+        </p>
+        <button class="btn btn-sm" onclick="document.getElementById('debug-panel').classList.add('active')">📋 OPEN DEBUG LOG</button>
+      </div>
+    </div>
+    <div class="admin-divider"></div>
+
     <!-- ══ SECTION: SETTINGS ══ -->
     <div class="admin-section" id="section-password">
       <div class="section-hdr">
@@ -1080,6 +1107,14 @@ function showPage(id) {
 wire('admin-btn', () => showPage('page-admin-login'));
 wire('abort-btn', () => showPage('page-scanner'));
 wire('exit-admin-btn', () => showPage('page-scanner'));
+// Lazy QR generation when QR activity section scrolled into view
+try {
+  const _qrObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { renderAQRs(); _qrObs.disconnect(); }
+  }, {threshold:0.1});
+  const _qrEl = document.getElementById('section-qr-activity');
+  if (_qrEl) _qrObs.observe(_qrEl);
+} catch(e) {}
 
 wire('auth-btn', () => {
   const v = document.getElementById('admin-pw-input').value;
@@ -1203,6 +1238,7 @@ function handleQR(data) {
     if (!kid) { openRecoveryModal(kidId); return; }
     curKid = kidId; renderScannerBadge();
     addLog(kid.name, 'OPERATIVE IDENTIFIED');
+    dbLog('SCAN: ' + kid.name + ' (' + kidId + ')');
     toast('OPERATIVE: ' + kid.name);
     playLoginSound();
     const _ssb = document.getElementById('scan-status-bar'); if (_ssb) _ssb.textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
@@ -1369,7 +1405,8 @@ wire('confirm-quickadd-btn', () => {
 //  ADMIN
 // ══════════════════════════════════════════
 function renderAdmin() {
-  renderKidList(); renderMissionConfig(); renderSelects(); renderAQRs(); updateOperativeDatalist(); renderTeamsList(); updateTeamDatalist();
+  renderKidList(); renderMissionConfig(); renderSelects(); updateOperativeDatalist(); renderTeamsList(); updateTeamDatalist();
+  // QR codes rendered lazily when section opened
   const inp = document.getElementById('sync-token-input');
   if (inp) {
     if (syncToken) {
@@ -1683,6 +1720,7 @@ function checkUrlParams() {
 //  INIT
 // ══════════════════════════════════════════
 unlockAudio();
+dbLog('SESSION START ' + new Date().toLocaleString('en-GB'));
 loadSyncConfig();
 if (syncToken) {
   setSyncUI(true); setSyncDot('syncing', 'CONNECTING...');
@@ -1766,6 +1804,7 @@ function setSyncDot(status, text) {
 }
 async function syncFetch() {
   if (!syncToken) return false;
+  dbLog('FETCH sha:' + (syncSha||'none').slice(0,8));
   try {
     const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
       headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
@@ -1797,6 +1836,7 @@ async function syncFetch() {
 async function syncPush(isNew) {
   if (!syncToken) return;
   isPushing = true;
+  dbLog('PUSH START mode:' + syncMode + ' sha:' + (syncSha||'none').slice(0,8));
   setSyncDot('syncing', syncMode === 'master' ? 'SAVING...' : 'SYNCING...');
   try {
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
@@ -1809,7 +1849,8 @@ async function syncPush(isNew) {
     });
     if (r.ok) {
       const d = await r.json(); syncSha = d.content.sha;
-      syncPushTimer = null; // clear so master can receive updates again
+      dbLog('PUSH OK new sha:' + d.content.sha.slice(0,8));
+      syncPushTimer = null;
       setSyncDot('ok', syncMode === 'master' ? 'MASTER' : 'LIVE');
       const t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const el = document.getElementById('sync-last-saved');
@@ -1831,6 +1872,7 @@ async function syncPush(isNew) {
   finally { isPushing = false; }
 }
 function schedulePush() {
+  dbLog('SCHEDULE PUSH mode:' + syncMode);
   clearTimeout(syncPushTimer);
   if (syncMode === 'master') {
     syncPushTimer = setTimeout(syncPush, 1000);
@@ -1910,7 +1952,7 @@ const MOB_SECTIONS = {
   operatives: ['section-operatives'],
   sync:       ['section-sync'],
   config:     ['section-missions','section-qr-operative','section-qr-activity',
-               'section-teams','section-backup','section-password','admin-desktop-hdr'],
+               'section-teams','section-backup','section-debug','section-password','admin-desktop-hdr'],
 };
 const ALL_MOB_SECTIONS = [...new Set(Object.values(MOB_SECTIONS).flat())];
 
@@ -2573,6 +2615,20 @@ window.closeVideo = closeVideo;
       <button class="btn btn-amber" id="edit-op-save-btn">✓ SAVE CHANGES</button>
       <button class="btn btn-danger" id="edit-op-cancel-btn">CANCEL</button>
     </div>
+  </div>
+</div>
+
+
+<!-- DEBUG PANEL -->
+<div id="debug-panel">
+  <div class="debug-hdr">
+    <div class="debug-hdr-title">⚙ SESSION DEBUG LOG</div>
+    <button class="btn btn-sm" onclick="copyDebugLog()" style="white-space:nowrap">📋 COPY ALL</button>
+    <button class="btn btn-sm" onclick="clearDebugLog()" style="white-space:nowrap">🗑 CLEAR</button>
+    <button class="btn btn-sm btn-danger" onclick="document.getElementById('debug-panel').classList.remove('active')" style="white-space:nowrap">✕ CLOSE</button>
+  </div>
+  <div class="debug-body" id="debug-log-content">
+    <div class="dblog-line" style="color:var(--dim)">— session log starts here —</div>
   </div>
 </div>
 
