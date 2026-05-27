@@ -1142,13 +1142,15 @@ wire('admin-btn', () => showPage('page-admin-login'));
 wire('abort-btn', () => showPage('page-scanner'));
 wire('exit-admin-btn', () => showPage('page-scanner'));
 // Lazy QR generation when QR activity section scrolled into view
-try {
-  const _qrObs = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) { renderAQRs(); _qrObs.disconnect(); }
-  }, {threshold:0.1});
-  const _qrEl = document.getElementById('section-qr-activity');
-  if (_qrEl) _qrObs.observe(_qrEl);
-} catch(e) {}
+if (window.IntersectionObserver) {
+  try {
+    const _qrObs = new IntersectionObserver(entries => {
+      if (entries[0] && entries[0].isIntersecting) { renderAQRs(); _qrObs.disconnect(); }
+    }, {threshold:0.1});
+    const _qrEl = document.getElementById('section-qr-activity');
+    if (_qrEl) _qrObs.observe(_qrEl);
+  } catch(e) {}
+}
 
 wire('auth-btn', () => {
   const v = document.getElementById('admin-pw-input').value;
@@ -2584,6 +2586,8 @@ function forceSyncNow() {
   }
 }
 window.forceSyncNow = forceSyncNow;
+window.dbLog = dbLog; // expose for debugging
+window.saveRecovery = saveRecovery;
 // Expose functions needed by inline HTML event handlers
 window.mobTab = mobTab;
 window.showPage = showPage;
