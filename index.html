@@ -1453,9 +1453,8 @@ function renderAdmin() {
   // QR codes rendered lazily when section opened
   const inp = document.getElementById('sync-token-input');
   if (inp) {
-    if (syncToken) {
-      inp.value = syncToken;
-    }
+    inp.value = syncToken || '';
+    inp.placeholder = syncToken ? 'Token saved — tap CONNECT to reconnect' : 'ghp_xxxxxxxxxxxx';
   }
   // Restore role radio selection
   const roleEl = document.getElementById('role-' + (syncMode || 'viewer'));
@@ -1822,14 +1821,35 @@ function loadSyncConfig() {
   try {
     syncToken = localStorage.getItem(SYNC_KEY) || sessionStorage.getItem(SYNC_KEY) || null;
     syncMode  = localStorage.getItem(SYNC_MODE_KEY) || sessionStorage.getItem(SYNC_MODE_KEY) || 'viewer';
-    if (syncToken) {
-      try { localStorage.setItem(SYNC_KEY, syncToken); sessionStorage.setItem(SYNC_KEY, syncToken); } catch(e) {}
+    // Last resort: check cookie
+    if (!syncToken) {
+      try {
+        const m = document.cookie.match(/csa_sync=([^;]+)/);
+        if (m) {
+          const parts = decodeURIComponent(m[1]).split('|');
+          syncToken = parts[0] || null;
+          syncMode  = parts[1] || 'viewer';
+        }
+      } catch(e) {}
     }
-  } catch { syncToken = null; syncMode = 'viewer'; }
+    // Re-save to all storages to refresh them
+    if (syncToken) {
+      try { localStorage.setItem(SYNC_KEY, syncToken); localStorage.setItem(SYNC_MODE_KEY, syncMode); } catch(e) {}
+      try { sessionStorage.setItem(SYNC_KEY, syncToken); sessionStorage.setItem(SYNC_MODE_KEY, syncMode); } catch(e) {}
+    }
+  } catch(e) { syncToken = null; syncMode = 'viewer'; }
 }
 function saveSyncConfig() {
-  if (syncToken) { localStorage.setItem(SYNC_KEY, syncToken); localStorage.setItem(SYNC_MODE_KEY, syncMode); }
-  else { localStorage.removeItem(SYNC_KEY); localStorage.removeItem(SYNC_MODE_KEY); }
+  if (syncToken) {
+    try { localStorage.setItem(SYNC_KEY, syncToken); localStorage.setItem(SYNC_MODE_KEY, syncMode); } catch(e) {}
+    try { sessionStorage.setItem(SYNC_KEY, syncToken); sessionStorage.setItem(SYNC_MODE_KEY, syncMode); } catch(e) {}
+    // Also store in indexedDB-backed cookie as last resort
+    try { document.cookie = 'csa_sync=' + encodeURIComponent(syncToken + '|' + syncMode) + ';max-age=86400;SameSite=Strict'; } catch(e) {}
+  } else {
+    try { localStorage.removeItem(SYNC_KEY); localStorage.removeItem(SYNC_MODE_KEY); } catch(e) {}
+    try { sessionStorage.removeItem(SYNC_KEY); sessionStorage.removeItem(SYNC_MODE_KEY); } catch(e) {}
+    try { document.cookie = 'csa_sync=;max-age=0'; } catch(e) {}
+  }
 }
 function setSyncUI(connected) {
   const disc = document.getElementById('sync-disconnected');
@@ -1851,7 +1871,7 @@ function setSyncDot(status, text) {
 }
 async function syncFetch() {
   if (!syncToken) return false;
-  dbLog('FETCH sha:' + (syncSha||'none').slice(0,8));
+  dbLog('FETCH sha:' + (syncSha||'none').slice(0,8) + ' mode:' + syncMode);
   try {
     const r = await fetch('https://api.github.com/repos/' + SYNC_REPO + '/contents/data.json', {
       headers: { 'Authorization': 'token ' + syncToken, 'Accept': 'application/vnd.github.v3+json' }
