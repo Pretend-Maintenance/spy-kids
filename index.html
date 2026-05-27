@@ -2195,10 +2195,29 @@ function importOperatives(file) {
 //  UNKNOWN OPERATIVE RECOVERY
 // ══════════════════════════════════════════
 function openRecoveryModal(kidId) {
+  // Check if this ID already exists under a different name (duplicate scan)
+  const existing = state.kids && state.kids.find(k => k.id === kidId);
+  if (existing) {
+    // Already registered — just log them in directly
+    dbLog('RECOVERY: id ' + kidId + ' already registered as ' + existing.name + ', logging in');
+    curKid = kidId;
+    renderScannerBadge();
+    addLog(existing.name, 'OPERATIVE IDENTIFIED');
+    toast('OPERATIVE: ' + existing.name);
+    playLoginSound();
+    const _ssb = document.getElementById('scan-status-bar');
+    if (_ssb) _ssb.textContent = 'LOCKED: ' + existing.name + ' — SCAN ACTIVITY';
+    if (!state.scans) state.scans = {};
+    state.scans[kidId] = new Date().toISOString();
+    saveState();
+    return;
+  }
+  // Genuinely unknown — show registration form
   document.getElementById('recovery-kid-id').value   = kidId;
   document.getElementById('recovery-codename').value = '';
   document.getElementById('recovery-aka').value      = '';
   document.getElementById('recovery-skill').value    = '';
+  if (document.getElementById('recovery-team')) document.getElementById('recovery-team').value = '';
   document.getElementById('recovery-id-display').textContent = 'QR ID: ' + kidId;
   document.getElementById('recovery-modal').classList.add('active');
   setTimeout(() => document.getElementById('recovery-codename').focus(), 100);
@@ -2213,8 +2232,18 @@ function saveRecovery() {
   if (!name) { toast('ENTER A CODENAME', 'warn'); return; }
 
   // Check codename not already taken by a different ID
+  // Check name not taken by different ID
   const existing = state.kids.find(k => k.name === name && k.id !== kidId);
   if (existing) { toast('CODENAME ALREADY TAKEN', 'warn'); return; }
+  // Check ID not already registered (shouldn't reach here, but safety net)
+  const duplicateId = state.kids.find(k => k.id === kidId);
+  if (duplicateId) {
+    toast('That card is already registered to ' + duplicateId.name, 'warn');
+    dbLog('RECOVERY BLOCKED: id ' + kidId + ' already registered as ' + duplicateId.name);
+    document.getElementById('recovery-modal').classList.remove('active');
+    curKid = kidId; renderScannerBadge();
+    return;
+  }
 
   // Register with the exact same ID as the printed QR card
   const team = (document.getElementById('recovery-team')||{value:''}).value.trim().toUpperCase();
