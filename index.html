@@ -320,9 +320,10 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
   border-bottom:1px solid var(--border);
   margin-bottom:14px;
 }
-.section-icon{font-size:1.3rem;}
-.section-title{font-family:'Orbitron',monospace;font-size:0.99rem;font-weight:700;letter-spacing:.18em;}
-.section-desc{font-size:0.84rem;color:var(--dim);letter-spacing:.1em;margin-left:auto;}
+.section-icon{font-size:1.3rem;flex-shrink:0;}
+.section-title{font-family:'Orbitron',monospace;font-size:0.99rem;font-weight:700;letter-spacing:.18em;white-space:nowrap;}
+.section-desc{font-size:0.84rem;color:var(--dim);letter-spacing:.1em;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media(max-width:600px){.section-desc{display:none;}}
 
 /* Cards */
 .card{background:rgba(0,255,65,.04);border:1px solid var(--border);padding:14px;margin-bottom:10px;transition:border-color .2s;}
@@ -331,11 +332,17 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 
 /* Operative list */
 .op-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
-.op-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(0,255,65,.04);border:1px solid var(--border);}
-.op-item-icon{font-size:1.25rem;opacity:.7;}
-.op-item-name{flex:1;font-size:1.06rem;letter-spacing:.1em;font-family:'Orbitron',monospace;}
-.op-item-prog{font-size:0.84rem;color:var(--dim);letter-spacing:.08em;margin-right:8px;}
-.op-item-btns{display:flex;gap:5px;}
+.op-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(0,255,65,.04);border:1px solid var(--border);}
+.op-item-icon{font-size:1.1rem;opacity:.7;flex-shrink:0;}
+.op-item-name{flex:1;font-size:0.9rem;letter-spacing:.08em;font-family:'Orbitron',monospace;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.op-item-prog{font-size:0.78rem;color:var(--dim);letter-spacing:.06em;flex-shrink:0;white-space:nowrap;}
+.op-item-btns{display:flex;gap:4px;flex-shrink:0;}
+@media(max-width:500px){
+  .op-item{padding:7px 8px;gap:6px;}
+  .op-item-name{font-size:0.8rem;letter-spacing:.05em;}
+  .op-item-prog{display:none;}
+  .op-item-btns .btn{padding:4px 8px;font-size:0.78rem;}
+}
 
 /* Add operative input row */
 .add-row{display:flex;gap:8px;align-items:stretch;}
@@ -1255,38 +1262,43 @@ function stopCamera() {
 function resetScanner() { stopCamera(); lastScan = null; lastScanTs = 0; setTimeout(startCamera, 200); }
 
 function tick() {
-  if (!scanning || vid.readyState < 2) return;
-  if (!vid.videoWidth || !vid.videoHeight) return;
-  try {
-  // Scan at 2x native resolution for better QR detection
-  const scale = 2;
-  cvs.width = vid.videoWidth * scale; cvs.height = vid.videoHeight * scale;
-  cctx.drawImage(vid, 0, 0, cvs.width, cvs.height);
-  const img = cctx.getImageData(0, 0, cvs.width, cvs.height);
-  // Normalise green channel dominance from camera tint
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-    d[i] = d[i+1] = d[i+2] = gray;
+  if (!scanning || !stream) return;
+  // Check stream health — tracks can go dead silently (screen lock, tab switch)
+  if (stream.getTracks().some(t => t.readyState === 'ended')) {
+    dbLog('SCAN: stream track ended unexpectedly — restarting');
+    resetScanner(); return;
   }
-  cctx.putImageData(img, 0, 0);
-  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
-  if (!code) return;
-  const now = Date.now();
-  if (code.data === lastScan && now - lastScanTs < 1500) return;
-  lastScan = code.data; lastScanTs = now;
-  handleQR(code.data);
-  } catch(e) { /* canvas read error, skip frame */ }
+  if (vid.readyState < 2 || !vid.videoWidth || !vid.videoHeight) return;
+  if (typeof jsQR === 'undefined') return; // library not loaded yet
+  try {
+    const scale = 2;
+    cvs.width = vid.videoWidth * scale; cvs.height = vid.videoHeight * scale;
+    cctx.drawImage(vid, 0, 0, cvs.width, cvs.height);
+    const img = cctx.getImageData(0, 0, cvs.width, cvs.height);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      d[i] = d[i+1] = d[i+2] = gray;
+    }
+    cctx.putImageData(img, 0, 0);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+    if (!code) return;
+    const now = Date.now();
+    if (code.data === lastScan && now - lastScanTs < 1500) return;
+    lastScan = code.data; lastScanTs = now;
+    handleQR(code.data);
+  } catch(e) { /* canvas read error or SecurityError, skip frame */ }
 }
 
 function handleQR(data) {
   if (!data || typeof data !== 'string') return;
+  // Don't process scans while a video is playing — modal conflict
+  if (videoPlaying) return;
   const _sb = document.getElementById('scan-status-bar');
-  if (_sb) _sb.textContent = 'READ: ' + data.slice(0,60);
+  if (_sb) _sb.textContent = 'READ: ' + data.slice(0, 60);
   let url;
   try { url = new URL(data); }
   catch {
-    // Try treating as just params e.g. "?kid=k_abc123"
     try { url = new URL('https://x.com/' + data); } catch { toast('UNRECOGNISED QR', 'error'); return; }
   }
   const kidId = url.searchParams.get('kid');
@@ -1299,16 +1311,15 @@ function handleQR(data) {
     dbLog('SCAN: ' + kid.name + ' (' + kidId + ')');
     toast('OPERATIVE: ' + kid.name);
     playLoginSound();
-    const _ssb = document.getElementById('scan-status-bar'); if (_ssb) _ssb.textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
+    if (_sb) _sb.textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
     if (!state.scans) state.scans = {};
     state.scans[kidId] = new Date().toISOString();
-    saveState(); // push scan so laptop activity log updates
+    saveState();
     return;
   }
   if (actN) {
     const n = parseInt(actN);
-    if (n < 1 || n > state.missions.length) { toast('UNKNOWN ACTIVITY', 'error'); return; }
-    // Open team selection modal — pre-select current operative if one is locked in
+    if (isNaN(n) || n < 1 || n > state.missions.length) { toast('UNKNOWN ACTIVITY', 'error'); return; }
     if (curKid) selectedAgents.add(curKid);
     openActivityModal(n);
     return;
@@ -1360,50 +1371,78 @@ function openVideo(n) {
   document.getElementById('vm-title').textContent = 'MISSION ' + n + ': ' + (m ? m.name : '');
 
   const hint = document.getElementById('vm-hint');
-  if (hint) { hint.textContent = '[ TAP TO DISMISS ]'; hint.style.color = ''; hint.style.animation = ''; }
+  if (hint) { hint.textContent = ''; hint.style.color = ''; hint.style.animation = ''; }
 
   videoPlaying = true;
 
-  // Reset fully before touching src
-  v.oncanplay = null;
-  v.onplaying = null;
-  v.muted     = true;
-  v.volume    = 1.0;
-  v.onended   = closeVideo;
+  // Clear all previous handlers and timers
+  v.oncanplay    = null;
+  v.onplaying    = null;
+  v.onerror      = null;
+  v.onstalled    = null;
+  v.onwaiting    = null;
+  if (v._stallTimer) { clearTimeout(v._stallTimer); v._stallTimer = null; }
 
-  // Register canplay BEFORE setting src — if the file is cached Firefox can fire it synchronously
-  v.oncanplay = () => {
-    v.oncanplay = null;
-    v.play().then(() => {
-      v.muted = false;
-      if (hint && hint.textContent === '[ TAP TO DISMISS ]') {
-        hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]';
-      }
-    }).catch(() => {
-      // Muted play failed (shouldn't happen) — show tap prompt
-      v.muted = false;
-      if (hint) { hint.textContent = '[ TAP VIDEO TO PLAY ]'; hint.style.color = 'var(--amber)'; }
-      v.onclick = () => { v.muted = false; v.play().catch(()=>{}); v.onclick = null; };
-    });
+  v.muted   = true;
+  v.volume  = 1.0;
+  v.onended = closeVideo;
+
+  const showTapPrompt = () => {
+    if (hint) { hint.textContent = '[ TAP VIDEO TO PLAY ]'; hint.style.color = 'var(--amber)'; hint.style.animation = ''; }
+    v.onclick = () => { v.onclick = null; v.muted = false; v.play().catch(()=>{}); if (hint) { hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]'; hint.style.color = ''; } };
   };
 
-  // Show modal, set src, then load — modal must be visible before load() on Firefox Android
+  const startPlay = () => {
+    v.oncanplay = null;
+    if (v._stallTimer) { clearTimeout(v._stallTimer); v._stallTimer = null; }
+    v.play().then(() => {
+      v.muted = false;
+      if (hint) { hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]'; hint.style.color = ''; }
+    }).catch(showTapPrompt);
+  };
+
+  // Stall watchdog: if canplay hasn't fired in 4s, try playing anyway or show tap prompt
+  const armStallTimer = () => {
+    if (v._stallTimer) clearTimeout(v._stallTimer);
+    v._stallTimer = setTimeout(() => {
+      v._stallTimer = null;
+      if (v.readyState >= 3) { startPlay(); return; }    // have enough data, just go
+      if (v.readyState >= 1) { v.play().catch(showTapPrompt); return; } // have metadata
+      showTapPrompt();                                     // nothing loaded at all
+    }, 4000);
+  };
+
+  v.onerror = () => {
+    if (v._stallTimer) { clearTimeout(v._stallTimer); v._stallTimer = null; }
+    showTapPrompt();
+  };
+
+  // canplay fires when browser has enough data to start; register BEFORE setting src
+  v.oncanplay = startPlay;
+
+  // Show modal first, then rAF to guarantee the browser has painted it
+  // (Firefox Android won't buffer a video inside display:none)
   document.getElementById('video-modal').classList.add('active');
-  v.src = 'videos/activity1.mp4';
-  v.load();
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      v.src = 'videos/activity1.mp4';
+      armStallTimer();
+      v.load();
+    });
+  });
 }
 function closeVideo() {
   const v = document.getElementById('mission-video');
-  v.pause(); v.src = '';
-  v.oncanplay = null; v.onplaying = null;
+  if (v._stallTimer) { clearTimeout(v._stallTimer); v._stallTimer = null; }
+  v.oncanplay = null; v.onplaying = null; v.onerror = null; v.onstalled = null; v.onwaiting = null; v.onclick = null;
+  try { v.pause(); } catch(e) {}
+  v.src = '';
+  try { v.load(); } catch(e) {} // flush buffer
   document.getElementById('video-modal').classList.remove('active');
   const hint = document.getElementById('vm-hint');
-  if (hint) {
-    hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]';
-    hint.style.color = ''; hint.style.animation = '';
-  }
+  if (hint) { hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]'; hint.style.color = ''; hint.style.animation = ''; }
   videoPlaying = false;
-  // Flush any save that was deferred while video was playing
   if (pendingSaveAfterVideo) { pendingSaveAfterVideo = false; saveState(); }
   renderScannerBadge();
 }
@@ -1508,7 +1547,7 @@ function renderKidList() {
       <div class="op-item-name">${k.name}</div>
       <div class="op-item-prog">${done}/${total} MISSIONS</div>
       <div class="op-item-btns">
-        <button class="btn btn-sm" onclick="editKid('${k.id}')">✎ RENAME</button>
+        <button class="btn btn-sm" onclick="editKid('${k.id}')">✎ EDIT</button>
         <button class="btn btn-sm btn-danger" onclick="removeKid('${k.id}')">✕</button>
       </div>
     </div>`;
