@@ -1884,15 +1884,24 @@ async function syncFetch() {
     // Don't overwrite if a push is actively debouncing
     if (syncPushTimer && syncMode === 'master') return true;
 
-    // Always update if remote differs
+    // Don't overwrite while a push is queued (viewer only)
+    if (syncPushTimer && syncMode === 'viewer') {
+      dbLog('FETCH: push pending, skipping overwrite');
+      return true;
+    }
+    // Update if remote differs
     if (JSON.stringify(remote) !== JSON.stringify(state)) {
-      state = remote; saveLocal();
+      state = remote; normaliseState(); saveLocal();
       renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
       const p = document.querySelector('.page.active');
       if (p && p.id === 'page-admin') {
         if (window.innerWidth <= 768) {
           renderKidList(); renderSelects(); updateOperativeDatalist(); renderTeamsList();
         } else {
+          renderAdmin();
+        }
+      }
+    } else {
           renderAdmin();
         }
       }
