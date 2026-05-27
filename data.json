@@ -140,13 +140,6 @@
       "aka": "OAK",
       "skill": "BEING THE BOSS(Y ONE)",
       "team": "MISSION CONTROL"
-    },
-    {
-      "id": "k_bbyg8a",
-      "name": "TEST-DELETE",
-      "aka": "test",
-      "skill": "",
-      "team": "MANAGEMENT"
     }
   ],
   "progress": {
@@ -155,10 +148,6 @@
     ],
     "k_w14vr2": [
       2
-    ],
-    "k_bbyg8a": [
-      1,
-      5
     ]
   },
   "missions": [
