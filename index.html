@@ -1349,27 +1349,37 @@ function openVideo(n) {
   if (n === 'intro') return;
   const m   = state.missions.find(x => x.id === n);
   const v   = document.getElementById('mission-video');
+  if (!v) return;
   document.getElementById('vm-title').textContent = 'MISSION ' + n + ': ' + (m ? m.name : '');
 
-  // Ensure not muted
+  // Reset hint text
+  const hint = document.getElementById('vm-hint');
+  if (hint) { hint.textContent = '[ TAP TO DISMISS ]'; hint.style.color = ''; hint.style.animation = ''; }
+
   v.muted  = false;
   v.volume = 1.0;
   v.src    = 'videos/activity1.mp4';
-  v.load();
+  v.onended = closeVideo;
 
   document.getElementById('video-modal').classList.add('active');
 
-  v.play().catch(e => {
-    if (e.name === 'AbortError') return; // navigation/reload, ignore
-    // Autoplay blocked — show tap prompt
-    const hint = document.getElementById('vm-hint');
-    if (hint) {
-      hint.textContent = '[ TAP VIDEO TO PLAY ]';
-      hint.style.color = 'var(--amber)';
-      hint.style.animation = 'none';
-    }
-  });
-  v.onended = closeVideo;
+  // Load then play — more reliable on mobile than src+load+play together
+  v.load();
+  const tryPlay = () => {
+    v.play().catch(e => {
+      if (e.name === 'AbortError' || e.name === 'NotAllowedError') {
+        // Autoplay blocked or interrupted — show tap prompt
+        if (hint) {
+          hint.textContent = '[ TAP VIDEO TO PLAY ]';
+          hint.style.color = 'var(--amber)';
+        }
+        // Allow manual tap to play
+        v.onclick = () => { v.play(); v.onclick = null; };
+      }
+    });
+  };
+  // Small delay gives mobile browser time to register the modal as visible
+  setTimeout(tryPlay, 100);
 }
 function closeVideo() {
   const v = document.getElementById('mission-video'); v.pause(); v.src = '';
@@ -1912,7 +1922,9 @@ async function syncFetch() {
         });
         actLog.sort((a,b) => b.t.localeCompare(a.t));
         if (actLog.length > 200) actLog.length = 200;
-        renderLog();
+        // Don't re-render log during video playback
+        const videoActive = document.getElementById('video-modal');
+        if (!videoActive || !videoActive.classList.contains('active')) renderLog();
       }
       renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
       const p = document.querySelector('.page.active');
@@ -2335,15 +2347,17 @@ function confirmActivity() {
       addLog(kid.name, 'COMPLETED MISSION ' + pendingActivityId + ': ' + (state.missions.find(m=>m.id===pendingActivityId)||{name:''}).name);
     }
   });
-  saveState();
   renderScannerBadge();
   renderManualActGrid();
   if (names.length) {
     playCompleteSound();
     openVideo(pendingActivityId);
+    // Delay saveState/push until after video — prevents sync render from aborting video
+    setTimeout(saveState, 500);
   } else {
     toast('ALL SELECTED ALREADY DONE', 'warn');
     playAlreadyDoneSound();
+    saveState();
   }
 }
 window.confirmActivity = confirmActivity;
