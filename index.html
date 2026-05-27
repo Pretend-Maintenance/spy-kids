@@ -1015,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── All vars declared first to avoid TDZ errors ──
 let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
-let lastPushTime = 0;
+let lastPushTime = 0, isPushing = false, knownGoodSha = null;
 let syncMode = 'viewer';
 let audioCtx = null, audioUnlocked = false;
 let pendingActivityId = null, selectedAgents = new Set();
