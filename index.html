@@ -1015,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── All vars declared first to avoid TDZ errors ──
 let syncToken = null, syncSha = null, syncPollTimer = null, syncPushTimer = null;
+let lastPushTime = 0;
 let syncMode = 'viewer';
 let audioCtx = null, audioUnlocked = false;
 let pendingActivityId = null, selectedAgents = new Set();
@@ -1288,6 +1289,8 @@ function handleQR(data) {
     toast('OPERATIVE: ' + kid.name);
     playLoginSound();
     const _ssb = document.getElementById('scan-status-bar'); if (_ssb) _ssb.textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
+    if (!state.scans) state.scans = {};
+    state.scans[kidId] = new Date().toISOString();
     saveState(); // push scan so laptop activity log updates
     return;
   }
