@@ -1019,13 +1019,20 @@ const DEF = [
 ];
 function loadState() { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : fresh(); } catch { return fresh(); } }
 function fresh() { return { password: 'spy123', kids: [], progress: {}, missions: DEF.map(m => ({...m})), teams: ['TEAM ALPHA','TEAM BRAVO','TEAM CHARLIE','TEAM DELTA'] }; }
-function saveLocal() { localStorage.setItem(SK, JSON.stringify(state)); }
+function saveLocal() {
+  try { localStorage.setItem('spyAcademy', JSON.stringify(state)); } catch(e) {}
+}
 function saveState() { saveLocal(); if (syncToken) schedulePush(); }
 
 let state = loadState();
-function getKid(id) { return state.kids.find(k => k.id === id); }
-function genId() { return 'k_' + Math.random().toString(36).slice(2,8); }
-function getProg(kidId) { return (state.progress[kidId] || []).filter(x => x !== 'intro'); }
+function getKid(id) { if (!id || !Array.isArray(state.kids)) return null; return state.kids.find(k => k.id === id) || null; }
+function genId() {
+  let id;
+  do { id = 'k_' + Math.random().toString(36).slice(2,8); }
+  while (state.kids && state.kids.find(k => k.id === id));
+  return id;
+}
+function getProg(kidId) { if (!kidId || !state.progress) return []; return (state.progress[kidId] || []).filter(x => x !== 'intro'); }
 function markDone(kidId, mid) {
   if (!state.progress[kidId]) state.progress[kidId] = [];
   if (!state.progress[kidId].includes(mid)) state.progress[kidId].push(mid);
@@ -1044,7 +1051,7 @@ function addLog(name, action) {
   bumpBadge('tab-log-badge');
 }
 function renderLog() {
-  const list = document.getElementById('log-list');
+  const list = document.getElementById('log-list'); if (!list) return;
   if (!actLog.length) { list.innerHTML = '<div class="log-empty">NO ACTIVITY YET</div>'; return; }
   list.innerHTML = actLog.map(e => `
     <div class="log-entry">
@@ -1099,8 +1106,9 @@ const cctx = cvs.getContext('2d', { willReadFrequently: true });
 function getBase() { return window.location.origin + window.location.pathname.replace(/\/$/, ''); }
 
 async function startCamera() {
+  if (scanning || stream) return;
   const statusEl = document.getElementById('scan-status-bar');
-  statusEl.textContent = 'REQUESTING CAMERA...';
+  if (statusEl) statusEl.textContent = 'REQUESTING CAMERA...';
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     statusEl.textContent = 'CAMERA NOT SUPPORTED — USE CHROME OR SAFARI';
@@ -1147,10 +1155,11 @@ async function startCamera() {
   }
 }
 function stopCamera() {
-  scanning = false; clearInterval(scanInterval);
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  scanning = false;
+  clearInterval(scanInterval); scanInterval = null;
+  if (stream) { try { stream.getTracks().forEach(t => t.stop()); } catch(e) {} stream = null; }
 }
-function resetScanner() { stopCamera(); lastScan = null; lastScanTs = 0; startCamera(); }
+function resetScanner() { stopCamera(); lastScan = null; lastScanTs = 0; setTimeout(startCamera, 200); }
 
 function tick() {
   if (!scanning || vid.readyState < 2) return;
@@ -1178,8 +1187,9 @@ function tick() {
 }
 
 function handleQR(data) {
-  // Show what we're reading for debug
-  document.getElementById('scan-status-bar').textContent = 'READ: ' + data.slice(0,60);
+  if (!data || typeof data !== 'string') return;
+  const _sb = document.getElementById('scan-status-bar');
+  if (_sb) _sb.textContent = 'READ: ' + data.slice(0,60);
   let url;
   try { url = new URL(data); }
   catch {
@@ -1195,7 +1205,7 @@ function handleQR(data) {
     addLog(kid.name, 'OPERATIVE IDENTIFIED');
     toast('OPERATIVE: ' + kid.name);
     playLoginSound();
-    document.getElementById('scan-status-bar').textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
+    const _ssb = document.getElementById('scan-status-bar'); if (_ssb) _ssb.textContent = 'LOCKED: ' + kid.name + ' — SCAN ACTIVITY';
     return;
   }
   if (actN) {
@@ -1655,7 +1665,7 @@ async function renderAQRs() {
 // ══════════════════════════════════════════
 let toastT;
 function toast(msg, type = 'ok') {
-  const t = document.getElementById('toast'); t.textContent = msg;
+  const t = document.getElementById('toast'); if (!t) return; t.textContent = msg;
   t.className = 'show' + (type === 'error' ? ' error' : type === 'warn' ? ' warn' : '');
   clearTimeout(toastT); toastT = setTimeout(() => t.className = '', 3000);
 }
@@ -1764,7 +1774,7 @@ async function syncFetch() {
     if (!r.ok) return false;
     const d = await r.json();
     syncSha = d.sha;
-    const remote = JSON.parse(atob(d.content.replace(/\n/g, '')));
+    let remote; try { remote = JSON.parse(atob(d.content.replace(/\n/g, ''))); } catch(e) { return false; }
     // Don't overwrite if a push is actively debouncing
     if (syncPushTimer && syncMode === 'master') return true;
 
@@ -1884,6 +1894,14 @@ function disconnectSync() {
 }
 
 
+
+function normaliseState() {
+  if (!Array.isArray(state.kids)) state.kids = [];
+  if (!state.progress || typeof state.progress !== 'object') state.progress = {};
+  if (!Array.isArray(state.missions) || !state.missions.length) state.missions = DEF.map(m => ({...m}));
+  if (!Array.isArray(state.teams)) state.teams = ['TEAM ALPHA','TEAM BRAVO','TEAM CHARLIE','TEAM DELTA'];
+  if (!state.password) state.password = 'spy123';
+}
 // ══════════════════════════════════════════
 //  MOBILE ADMIN TABS
 // ══════════════════════════════════════════
