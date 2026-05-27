@@ -2147,9 +2147,8 @@ function saveRecovery() {
   renderScannerBadge();
   addLog(name, 'OPERATIVE REGISTERED & IDENTIFIED');
   toast('REGISTERED: ' + name);
-  document.getElementById('scan-status-bar').textContent = 'LOCKED: ' + name + ' — SCAN ACTIVITY';
-    renderAdmin();
-  updateOperativeDatalist();
+  const _ssb=document.getElementById('scan-status-bar'); if(_ssb) _ssb.textContent='LOCKED: '+name+' — SCAN ACTIVITY';
+  updateOperativeDatalist(); renderKidList(); renderManualActGrid();
 }
 window.openRecoveryModal = openRecoveryModal;
 window.openActivityModal = openActivityModal;
