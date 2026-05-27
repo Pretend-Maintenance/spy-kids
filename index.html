@@ -872,7 +872,7 @@ input::placeholder{color:rgba(0,255,65,.2);}
         <p style="font-size:0.85rem;color:var(--dim);margin-bottom:12px;line-height:1.7;letter-spacing:.07em">
           Records all sync activity, scans and errors since the page loaded. Copy and share if you need help diagnosing an issue.
         </p>
-        <button class="btn btn-sm" onclick="document.getElementById('debug-panel').classList.add('active')">📋 OPEN DEBUG LOG</button>
+        <button class="btn btn-sm" onclick="document.getElementById('debug-panel').classList.add('active'); flushDebugLog();">📋 OPEN DEBUG LOG</button>
       </div>
     </div>
     <div class="admin-divider"></div>
@@ -1026,18 +1026,23 @@ function dbLog(msg) {
   const t = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   debugLog.push('['+t+'] '+msg);
   if (debugLog.length > 500) debugLog.shift();
-  if (!_dbLogRaf) {
-    _dbLogRaf = true;
-    requestAnimationFrame(() => {
-      _dbLogRaf = false;
-      const panel = document.getElementById('debug-panel');
-      if (!panel || !panel.classList.contains('active')) return;
-      const c = document.getElementById('debug-log-content');
-      if (c) c.innerHTML = debugLog.slice(-200).reverse()
-        .map(e=>'<div class="dblog-line">'+e.replace(/</g,'&lt;')+'</div>').join('');
-    });
-  }
+  // Update panel immediately if open — no rAF delay
+  flushDebugLog();
 }
+function flushDebugLog() {
+  const c = document.getElementById('debug-log-content');
+  if (!c) return;
+  const panel = document.getElementById('debug-panel');
+  if (!panel || !panel.classList.contains('active')) return;
+  c.innerHTML = debugLog.slice(-200).reverse().map(e => {
+    let cls = 'dblog-line';
+    if (e.includes('PUSH') || e.includes('FETCH') || e.includes('POLL') || e.includes('CONNECT') || e.includes('SCHEDULE')) cls += ' sync';
+    if (e.includes('ERROR') || e.includes('FAIL') || e.includes('denied') || e.includes('error')) cls += ' err';
+    if (e.includes('SCAN:') || e.includes('COMPLETE') || e.includes('ADD:') || e.includes('REMOVE') || e.includes('RECOVERY')) cls += ' scan';
+    return '<div class="' + cls + '">' + e.replace(/</g,'&lt;') + '</div>';
+  }).join('');
+}
+window.flushDebugLog = flushDebugLog;
 function clearDebugLog() {
   debugLog.length = 0;
   const c = document.getElementById('debug-log-content');
@@ -1512,12 +1517,14 @@ wire('add-kid-btn', () => {
   document.getElementById('new-kid-skill').value = '';
   document.getElementById('new-kid-team').value = '';
   renderAdmin();
-  addLog(codename, 'OPERATIVE REGISTERED'); toast('ADDED: ' + codename);
+  addLog(codename, 'OPERATIVE REGISTERED'); dbLog('ADD: ' + codename + ' team:' + team); toast('ADDED: ' + codename);
 });
 document.getElementById('new-kid-codename').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('add-kid-btn').click(); });
 
 function removeKid(id) {
   if (!confirm('REMOVE OPERATIVE?')) return;
+  const _rk = state.kids.find(k => k.id === id);
+  dbLog('REMOVE: ' + (_rk ? _rk.name : id));
   state.kids = state.kids.filter(k => k.id !== id); delete state.progress[id];
   saveLocal();
   // Push immediately — don't wait for debounce, prevents sync overwrite
@@ -1548,6 +1555,7 @@ function saveEditKid() {
   const kid = getKid(id);
   if (!kid) return;
   kid.name = name; kid.aka = aka; kid.skill = skill; kid.team = team;
+  dbLog('EDIT: ' + name + ' team:' + team);
   saveLocal();
   if (syncToken) { clearTimeout(syncPushTimer); syncPush(); }
   document.getElementById('edit-operative-modal').classList.remove('active');
@@ -1650,7 +1658,7 @@ function toggleM(mid) {
   if (!state.progress[adminKid]) state.progress[adminKid] = [];
   const prog = state.progress[adminKid]; const idx = prog.indexOf(mid);
   const kid = getKid(adminKid);
-  if (idx === -1) { prog.push(mid); addLog(kid ? kid.name : '?', 'ADMIN: MISSION ' + mid + ' COMPLETE'); toast('MISSION ' + mid + ' COMPLETE'); playCompleteSound(); }
+  if (idx === -1) { prog.push(mid); dbLog('ADMIN COMPLETE: ' + (kid?kid.name:'?') + ' mission ' + mid); addLog(kid ? kid.name : '?', 'ADMIN: MISSION ' + mid + ' COMPLETE'); toast('MISSION ' + mid + ' COMPLETE'); playCompleteSound(); }
   else { prog.splice(idx, 1); addLog(kid ? kid.name : '?', 'ADMIN: MISSION ' + mid + ' RESET'); toast('MISSION ' + mid + ' RESET', 'warn'); }
   saveState(); renderMT(); renderScannerBadge();
 }
@@ -1947,7 +1955,8 @@ async function connectSync() {
   const roleEl = document.querySelector('input[name="sync-role"]:checked');
   syncMode  = roleEl ? roleEl.value : 'viewer';
   syncToken = token;
-  saveSyncConfig(); // save token+mode immediately
+  dbLog('CONNECT: mode=' + syncMode + ' token=****' + token.slice(-4));
+  saveSyncConfig();
   try { sessionStorage.setItem(SYNC_KEY, syncToken); sessionStorage.setItem(SYNC_MODE_KEY, syncMode); } catch(e) {}
   setSyncDot('syncing', 'CONNECTING...');
   const ok = await syncFetch();
