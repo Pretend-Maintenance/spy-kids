@@ -1020,6 +1020,11 @@ let syncMode = 'viewer';
 let audioCtx = null, audioUnlocked = false;
 let pendingActivityId = null, selectedAgents = new Set();
 let videoPlaying = false, pendingSaveAfterVideo = false;
+let _saveDebounceTimer = null;
+function saveStateDebounced() {
+  clearTimeout(_saveDebounceTimer);
+  _saveDebounceTimer = setTimeout(saveState, 400);
+}
 
 // ── Debug log (defined early so all code can use it) ──
 const debugLog = [];
@@ -1358,38 +1363,32 @@ function openVideo(n) {
 
   videoPlaying = true;
 
-  // Start muted — autoplay always works muted regardless of gesture staleness.
-  // We unmute once the browser confirms playback has actually started.
-  v.muted  = true;
-  v.volume = 1.0;
-  v.src    = 'videos/activity1.mp4';
-  v.onended = closeVideo;
+  // Reset fully before touching src
+  v.oncanplay = null;
+  v.onplaying = null;
+  v.muted     = true;
+  v.volume    = 1.0;
+  v.onended   = closeVideo;
 
-  document.getElementById('video-modal').classList.add('active');
-
-  // Remove any previous one-shot listeners
-  v.oncanplay  = null;
-  v.onplaying  = null;
-
+  // Register canplay BEFORE setting src — if the file is cached Firefox can fire it synchronously
   v.oncanplay = () => {
     v.oncanplay = null;
     v.play().then(() => {
-      // Playing muted — now safely unmute
       v.muted = false;
       if (hint && hint.textContent === '[ TAP TO DISMISS ]') {
         hint.textContent = '[ PRESS CLOSE WHEN BRIEFING COMPLETE ]';
       }
-    }).catch(e => {
-      // Muted play should never fail, but just in case
+    }).catch(() => {
+      // Muted play failed (shouldn't happen) — show tap prompt
       v.muted = false;
-      if (hint) {
-        hint.textContent = '[ TAP VIDEO TO PLAY ]';
-        hint.style.color = 'var(--amber)';
-      }
+      if (hint) { hint.textContent = '[ TAP VIDEO TO PLAY ]'; hint.style.color = 'var(--amber)'; }
       v.onclick = () => { v.muted = false; v.play().catch(()=>{}); v.onclick = null; };
     });
   };
 
+  // Show modal, set src, then load — modal must be visible before load() on Firefox Android
+  document.getElementById('video-modal').classList.add('active');
+  v.src = 'videos/activity1.mp4';
   v.load();
 }
 function closeVideo() {
@@ -1524,7 +1523,7 @@ function renderMissionConfig() {
         placeholder="MISSION ${m.id} NAME" autocomplete="off">
     </div>`).join('') + `</div>`;
 }
-function updateMission(id, v) { const m = state.missions.find(x => x.id === id); if (m) { m.name = v.toUpperCase(); saveState(); } }
+function updateMission(id, v) { const m = state.missions.find(x => x.id === id); if (m) { m.name = v.toUpperCase(); saveStateDebounced(); } }
 
 function renderSelects() {
   const opts = state.kids.map(k => `<option value="${k.id}">${k.name}</option>`).join('');
@@ -1943,10 +1942,15 @@ async function syncFetch() {
       renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
       const p = document.querySelector('.page.active');
       if (p && p.id === 'page-admin') {
-        if (window.innerWidth <= 768) {
-          renderKidList(); renderSelects(); updateOperativeDatalist(); renderTeamsList();
-        } else {
-          renderAdmin();
+        // Don't rebuild admin DOM while the user is typing — it destroys focus and caret position.
+        // The next poll cycle (5-10s) will catch up once they're done.
+        const typing = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA');
+        if (!typing) {
+          if (window.innerWidth <= 768) {
+            renderKidList(); renderSelects(); updateOperativeDatalist(); renderTeamsList();
+          } else {
+            renderAdmin();
+          }
         }
       }
     }
@@ -2114,7 +2118,7 @@ function renderTeamsList() {
 function updateTeamName(i, val) {
   if (!state.teams) return;
   state.teams[i] = val.toUpperCase();
-  saveState();
+  saveStateDebounced();
   updateTeamDatalist();
 }
 
