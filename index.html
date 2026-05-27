@@ -1118,7 +1118,8 @@ function markDone(kidId, mid) {
 const actLog = [];
 function addLog(name, action) {
   const t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  actLog.unshift({ name, action, t });
+  const entry = { name, action, t };
+  actLog.unshift(entry);
   if (actLog.length > 60) actLog.pop();
   // Persist to state so it syncs
   if (!state.actLog) state.actLog = [];
@@ -1795,7 +1796,6 @@ function checkUrlParams() {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
-unlockAudio();
 dbLog('SESSION START ' + new Date().toLocaleString('en-GB'));
 loadSyncConfig();
 if (syncToken) {
@@ -2436,25 +2436,27 @@ function getAudio() {
 // Called on any user gesture to unlock audio for the session
 function unlockAudio() {
   if (audioUnlocked) return;
+  // Don't create AudioContext here — creating it outside a gesture causes the browser warning.
+  // If it already exists (created by a prior playSound call), resume it.
+  if (!audioCtx) return;
   try {
-    const ctx = getAudio();
-    // Play a silent buffer to unlock
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
+    const buf = audioCtx.createBuffer(1, 1, 22050);
+    const src = audioCtx.createBufferSource();
     src.buffer = buf;
-    src.connect(ctx.destination);
+    src.connect(audioCtx.destination);
     src.start(0);
-    ctx.resume().then(() => { audioUnlocked = true; });
+    audioCtx.resume().then(() => { audioUnlocked = true; });
   } catch(e) {}
 }
 
-// Play a sound — resumes context if needed, waits if still locked
+// Play a sound — creates AudioContext on first use (must be inside a user gesture call stack),
+// resumes if suspended, then runs the sound function
 async function playSound(fn) {
   try {
-    const ctx = getAudio();
-    if (ctx.state === 'suspended') {
-      await ctx.resume();
-    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtx;
+    if (ctx.state === 'suspended') await ctx.resume();
+    audioUnlocked = true;
     fn(ctx);
   } catch(e) {}
 }
