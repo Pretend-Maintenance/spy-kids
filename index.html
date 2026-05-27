@@ -1114,6 +1114,10 @@ function addLog(name, action) {
   const t = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   actLog.unshift({ name, action, t });
   if (actLog.length > 60) actLog.pop();
+  // Persist to state so it syncs
+  if (!state.actLog) state.actLog = [];
+  state.actLog.unshift(entry);
+  if (state.actLog.length > 100) state.actLog.pop();
   renderLog();
   bumpBadge('tab-log-badge');
 }
@@ -1900,6 +1904,16 @@ async function syncFetch() {
     // Update if remote differs
     if (JSON.stringify(remote) !== JSON.stringify(state)) {
       state = remote; normaliseState(); saveLocal();
+      // Merge remote actLog into local display
+      if (Array.isArray(state.actLog) && state.actLog.length) {
+        const seen = new Set(actLog.map(e => e.t+e.name+e.action));
+        state.actLog.forEach(e => {
+          if (!seen.has(e.t+e.name+e.action)) { actLog.push(e); seen.add(e.t+e.name+e.action); }
+        });
+        actLog.sort((a,b) => b.t.localeCompare(a.t));
+        if (actLog.length > 200) actLog.length = 200;
+        renderLog();
+      }
       renderScannerBadge(); renderManualActGrid(); updateOperativeDatalist();
       const p = document.querySelector('.page.active');
       if (p && p.id === 'page-admin') {
@@ -2024,6 +2038,8 @@ function normaliseState() {
   if (!Array.isArray(state.missions) || !state.missions.length) state.missions = DEF.map(m => ({...m}));
   if (!Array.isArray(state.teams)) state.teams = ['TEAM ALPHA','TEAM BRAVO','TEAM CHARLIE','TEAM DELTA'];
   if (!state.password) state.password = 'spy123';
+  if (!Array.isArray(state.actLog)) state.actLog = [];
+  if (typeof state.scans !== 'object') state.scans = {};
 }
 // ══════════════════════════════════════════
 //  MOBILE ADMIN TABS
