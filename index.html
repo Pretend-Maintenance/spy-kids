@@ -1921,6 +1921,7 @@ async function syncPush(isNew) {
     });
     if (r.ok) {
       const d = await r.json(); syncSha = d.content.sha;
+      syncSha = d.content.sha; // lock SHA before clearing isPushing
       dbLog('PUSH OK new sha:' + d.content.sha.slice(0,8));
       syncPushTimer = null;
       setSyncDot('ok', syncMode === 'master' ? 'MASTER' : 'LIVE');
